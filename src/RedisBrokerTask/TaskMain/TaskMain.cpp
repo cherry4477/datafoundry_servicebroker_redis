@@ -92,43 +92,7 @@ int CTaskMain::BdxRunTask(BDXREQUEST_S& stRequestInfo, BDXRESPONSE_S& stResponse
 
 int CTaskMain::BdxGetHttpPacket(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S &stResponseInfo)
 {
-
 	int iRes = 0;
-	//int iReqMethod = 0;
-	std::string errorMsg;
-	int iQueryCategory = 1;
-	m_httpType = 0; //local
-	bool bUpdateDatabase = false;
-	bool bQueryUser = false;
-	bool bQueryGoods = false;
-	int iNoDataFlag = 0,isQueryAction = 0;
-	std::string	
-	ssUser,ssValue,ssKey,ssmoidValue,strUser,filterDate,strToken,strKey,strKeyType,strKeyFilter,tempstrKeyFilter,strShopId,strGoodsId,strProvince,strOperator,strRetKey,strMoId;
-	std::string strProvinceReq,strProvinceRes,strProvinceEmptyRes,strProvinceResTag,strOperatorName;
-	std::map<std::string,std::string> map_UserValueKey;
-	std::map<std::string,std::string>::iterator iter2;
-	std::map<std::string,BDXPERMISSSION_S>::iterator iter;
-	std::vector<std::string>::iterator itRights;
-	//int iIncludeNoFields = 0;
-	//int mapActionFilterSize;
-	std::map<std::string,int> mapActionFilter;
-	std::string 
-	mResUserAttributes,mResUserAttributes2,strTempValue,strCurrentHour;
-	Json::Value jValue,jRoot,jResult,jTemp;
-	int lenStrTemp;
-	Json::FastWriter jFastWriter;
-	int isExpire = 0, iIsLocal=0,iRemoteApiFlag = 0;
-	string strCreateTime,strCreateTime2,strLastDataTime,strLastDataTime2,mResValueLocal,mResValueRemote;
-	struct tm ts;
-	time_t timetNow,timetCreateTime,timetCreateTime2;
-	std::string strRef="ctyun_bdcsc_asia";
-	std::string strPassWord="81c1b4ee6bac4c16";
-	std::string strProvinceList="110000,120000,130000,140000,150000,210000,220000,230000,310000,320000,330000,340000,350000,360000,370000,410000,420000,430000,440000,450000,460000,500000,510000,520000,530000,540000,610000,620000,630000,640000,650000";
-	std::string strKeyTypeList = "1,2,3,4,5,M";
-	std::string strMd5Pass,signError,signOK;
-	std::string strSeed;
-	std::string strSign,reqParams;
-	
 	//Json::Reader jReader;
 	Json::Reader *jReader= new Json::Reader(Json::Features::strictMode()); // turn on strict verify mode
 
@@ -146,11 +110,7 @@ int CTaskMain::BdxGetHttpPacket(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S &stRes
 	memset(m_pszAdxBuf, 0, _8KBLEN);
 	
 	iRes = m_pclSock->TcpRead(m_pszAdxBuf, _8KBLEN);
-	if( iRes > 0 )
-	{
-		printf("m_pszAdxBuf=%s\n",m_pszAdxBuf);
-	}
-	
+
 	if(iRes <= (int)http.length()) 
 	{		
 		LOG(DEBUG, "[thread: %d]Read Socket Error [%d].", m_uiThreadId, iRes);
@@ -160,11 +120,11 @@ int CTaskMain::BdxGetHttpPacket(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S &stRes
 
 	std::string ssContent = std::string(m_pszAdxBuf);
 	m_httpType = BdxGetRequestMethod(ssContent);
-
+	printf("m_httpType=%d\n",m_httpType);
 	switch(m_httpType)
 	{
 		case CATALOG:
-				BdxCatalog();
+				BdxCatalog(stRequestInfo);
 				break;
 		case PROVISION:
 				BdxProvision();
@@ -191,9 +151,6 @@ int CTaskMain::BdxGetHttpPacket(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S &stRes
 
 	}
 	printf("ssContent=%s\n",ssContent.c_str());
-	printf("m_httpType=%d\n",m_httpType);
-	printf("m_httpUri=%d\n",m_httpUri);
-
 	return SUCCESS;
 	
 	}
@@ -208,7 +165,6 @@ int CTaskMain::BdxParseHttpPacket(char*& pszBody, u_int& uiBodyLen, const u_int 
 		//LOG(ERROR, "[thread: %d]It is not POST request.", m_uiThreadId);
 		return PROTOERROR;
 	}
-
 	//find body
 	pszTmp = strstr(pszPacket, m_pszHttpHeaderEnd);
 	if(pszTmp == NULL) {
@@ -257,13 +213,13 @@ int CTaskMain::BdxSendRespones(BDXREQUEST_S& stRequestInfo, BDXRESPONSE_S& stAdx
 	}
 	if(m_httpType)
 	{
-		sprintf((char *)m_pszAdxResponse, "%s%sContent-Length: %d\r\n\r\n", http200ok,BdxGetHttpDate().c_str(),(int)stAdxRes.mResValue.length());
+		sprintf((char *)m_pszAdxResponse, "%s%sContent-Length: %d\r\n\r\n", http200ok,BdxGetHttpDate().c_str(),(int)stRequestInfo.m_strReqContent.length());
 		int iHeadLen = strlen(m_pszAdxResponse);
-		memcpy(m_pszAdxResponse + iHeadLen, stAdxRes.mResValue.c_str(),stAdxRes.mResValue.length());
+		memcpy(m_pszAdxResponse + iHeadLen, stRequestInfo.m_strReqContent.c_str(),stRequestInfo.m_strReqContent.length());
 	}
 	else
 	{
-		sprintf((char *)m_pszAdxResponse,"%s",stAdxRes.mResValue.c_str());
+		sprintf((char *)m_pszAdxResponse,"%s",stRequestInfo.m_strReqContent.c_str());
 	}
 	
 	int iBodyLength = strlen(m_pszAdxResponse);
@@ -488,41 +444,74 @@ std::string CTaskMain::BdxGetParamSign(const std::string& strParam, const std::s
     return std::string(pszMd5Hex);
 }
 
-int CTaskMain::BdxCatalog()
+int CTaskMain::BdxCatalog(BDXREQUEST_S& stRequestInfo)
 {
-	return SUCCESS;
+	stRequestInfo.m_strReqContent="{\
+\"services\": [{\
+\"id\": \"service-guid-redis\",\
+\"name\": \"myredis\",\
+\"description\": \"A MySQL-compatible relational database\",\
+\"bindable\": true,\
+\"plans\": [{\
+\"id\": \"plan1-free-5G\",\
+\"name\": \"small\",\
+\"description\": \"A small shared database with 5000mb storage quota\",\
+\"free\":true\
+},{\
+\"id\": \"plan2-charge-20G\",\
+\"name\": \"large\",\
+\"description\": \"A large dedicated database with 20GB storage quota\",\
+\"free\": false\
+}],\
+\"dashboard_client\": {\
+\"id\": \"client-id-1\",\
+\"secret\": \"secret-1\",\
+\"redirect_uri\": \"https://myredis:port\"\
+}\
+}]\
+}";	
+	printf("===================================================================================BdxCatalog==========================================================================\n");
+	printf("%s\n",stRequestInfo.m_strReqContent.c_str());
+	printf("=======================================================================================================================================================================\n");
+	//return SUCCESS;
+	return -1;
+	
 }
 
 int CTaskMain::BdxProvision()
 {
+	printf("BdxProvision...\n");
 	return SUCCESS;
 }
 int CTaskMain::BdxDeProvision()
 {
+	printf("BdxDeProvision...\n");
 	return SUCCESS;
 }
 int CTaskMain::BdxLastOperation()
 {
+	printf("BdxLastOperation...\n");
 	return SUCCESS;
 }
 int CTaskMain::BdxUpdate()
 {
+	printf("BdxUpdate...\n");
 	return SUCCESS;
 }
 int CTaskMain::BdxBind()
 {
+	printf("BdxBind...\n");
 	return SUCCESS;
 }
 int CTaskMain::BdxUnbind()
 {
+	printf("BdxUnbind...\n");
 	return SUCCESS;
 }
 
 int CTaskMain::BdxGetRequestMethod(std::string &reqParams)
 {
-	printf("reqParams=%s\n",reqParams.c_str());
 	m_httpUri = BdxGetRequestURI(reqParams);
-	printf("m_httpUri=%d\n",m_httpUri);
 	if (strcasecmp(reqParams.substr(0,reqParams.find(BLANK,0)).c_str(),REQ_TYPE_GET)== 0)
 	{	
 		printf("+++++++++++++++reqParams=%s\n",reqParams.c_str());
@@ -556,9 +545,7 @@ int CTaskMain::BdxGetRequestMethod(std::string &reqParams)
 }
 
 int CTaskMain::BdxGetRequestURI(std::string &reqParams)
-{
-	printf("reqParams=%s\n",reqParams.c_str());
-	
+{	
 	if (reqParams.substr(reqParams.find(BLANK,0),reqParams.find(CTRL_N,0)).find("/v2/catalog")!= std::string::npos)
 	{
 		return TYPE_GET; // 1 is stand for catalog
