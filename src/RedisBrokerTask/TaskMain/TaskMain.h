@@ -38,7 +38,7 @@ public:
 	std::string BdxGenNonce(int length);
 	std::string GenPasswordDigest(std::string utcTime, std::string nonce, std::string appSecret);
 	std::string BdxGetParamSign(const std::string& strParam, const std::string& strSign);
-	int BdxCatalog();
+	int BdxCatalog(BDXREQUEST_S& stRequestInfo);
 	int BdxProvision();
 	int BdxDeProvision();
 	int BdxLastOperation();
