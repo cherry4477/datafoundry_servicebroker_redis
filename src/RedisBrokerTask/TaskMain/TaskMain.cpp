@@ -9,6 +9,9 @@
 #include "../../CommonTools/Base64Encode/Base64.h"
 #include "../../CommonTools/Base64Encode/Base64_2.h"
 #include "../../../include/json/json.h"
+#include "../../../include/etcdcpp/rapid_reply.hpp"
+//#include "../../../include/etcdcpp/etcd.hpp"
+
 #include <arpa/inet.h>
 #include <stdlib.h>
 #include <openssl/ssl.h>
@@ -42,7 +45,8 @@ static const char http200ok[] = "HTTP/1.1 200 OK\r\nServer: Bdx DMP/0.1.0\r\nCac
 //static const char http200ok[] = "";
 static const char httpReq[]="GET %s HTTP/1.1\r\nHost: %s\r\nAccept-Encoding: identity\r\n\r\n";
 
-#define __EXPIRE__
+etcd::Client<example::RapidReply> etcd_client("54.222.135.148", 2379);
+
 
 
 CTaskMain::CTaskMain(CTcpSocket* pclSock):CUserQueryTask(pclSock)
@@ -76,15 +80,14 @@ int CTaskMain::BdxRunTask(BDXREQUEST_S& stRequestInfo, BDXRESPONSE_S& stResponse
 	}
 
 	iRes = 	BdxGetHttpPacket(stRequestInfo,stResponseInfo);	
-	LOG(DEBUG,"BdxGetHttpPacket iRes=%d",iRes);
-	//printf("strErrorMsg=%s\n",strErrorMsg.c_str());
 	if(iRes == SUCCESS )//&& !stRequestInfo.m_strUserID.empty() /*&& m_bSend*/) 
 	{
 		return BdxSendRespones( stRequestInfo, stResponseInfo);
 	}
 	else
 	{
-		return BdxSendEmpyRespones(stResponseInfo.ssErrorMsg);
+		//stResponseInfo.ssErrorMsg="E0001";
+		return BdxSendEmpyRespones(stRequestInfo.m_strReqContent);
 	}
 	return iRes;
 }
@@ -94,15 +97,15 @@ int CTaskMain::BdxGetHttpPacket(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S &stRes
 {
 	int iRes = 0;
 	//Json::Reader jReader;
-	Json::Reader *jReader= new Json::Reader(Json::Features::strictMode()); // turn on strict verify mode
+	//Json::Reader *jReader= new Json::Reader(Json::Features::strictMode()); // turn on strict verify mode
 
-	char *temp[PACKET]; 
-	int  index = 0;
+	//char *temp[PACKET]; 
+	//int  index = 0;
 	char bufTemp[PACKET];
-	char *buf;
-	char *buf2;
-	char *outer_ptr = NULL;  
-	char *inner_ptr = NULL;  
+	//char *buf;
+	//char *buf2;
+	//char *outer_ptr = NULL;  
+	//char *inner_ptr = NULL;  
 	char m_httpReq[_8KBLEN];
 
 	memset(m_httpReq, 0, _8KBLEN);
@@ -119,8 +122,11 @@ int CTaskMain::BdxGetHttpPacket(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S &stRes
 	}
 
 	std::string ssContent = std::string(m_pszAdxBuf);
+
+	
 	m_httpType = BdxGetRequestMethod(ssContent);
 	printf("m_httpType=%d\n",m_httpType);
+	
 	switch(m_httpType)
 	{
 		case CATALOG:
@@ -135,7 +141,7 @@ int CTaskMain::BdxGetHttpPacket(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S &stRes
 		case LASTOPERATION:
 				BdxLastOperation();
 				break;
-		case UPDATE:
+		case PATCH:
 				BdxUpdate();
 				break;
 		case BIND:
@@ -144,9 +150,10 @@ int CTaskMain::BdxGetHttpPacket(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S &stRes
 		case UNBIND:
 				BdxUnbind();
 				break;
-
 		default:
 				printf("no match mothod.....\n");
+				stRequestInfo.m_strReqContent="no match mothod.....";
+				return OTHERERROR;
 				break;
 
 	}
@@ -158,7 +165,6 @@ int CTaskMain::BdxGetHttpPacket(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S &stRes
 int CTaskMain::BdxParseHttpPacket(char*& pszBody, u_int& uiBodyLen, const u_int uiParseLen)
 {
 	u_int uiHeadLen = 0;
-
 	char* pszTmp = NULL;
 	char* pszPacket = m_pszAdxBuf;
 	if(strncmp(m_pszAdxBuf, "GET", strlen("GET"))) {
@@ -189,7 +195,7 @@ int CTaskMain::BdxParseBody(char *pszBody, u_int uiBodyLen, BDXREQUEST_S& stRequ
 int CTaskMain::BdxSendEmpyRespones(std::string &errorMsg)
 {
 	m_clEmTime.TimeOff();
-	std::string strOutput=errorMsg;	
+	std::string strOutput=errorMsg;
 	char pszDataBuf[_8KBLEN];
 	memset(pszDataBuf, 0, _8KBLEN);
 	sprintf((char *)pszDataBuf, "%s%sContent-Length: %d\r\n\r\n", http200ok,BdxGetHttpDate().c_str(),(int)strOutput.length());
@@ -446,6 +452,13 @@ std::string CTaskMain::BdxGetParamSign(const std::string& strParam, const std::s
 
 int CTaskMain::BdxCatalog(BDXREQUEST_S& stRequestInfo)
 {
+
+	example::RapidReply reply = etcd_client.Get("/servicebroker/catalog/redisBroker/service_redis_broker_here");
+
+	reply.Print();
+
+
+	#if 0
 	stRequestInfo.m_strReqContent="{\
 \"services\": [{\
 \"id\": \"service-guid-redis\",\
@@ -470,11 +483,12 @@ int CTaskMain::BdxCatalog(BDXREQUEST_S& stRequestInfo)
 }\
 }]\
 }";	
+#endif
 	printf("===================================================================================BdxCatalog==========================================================================\n");
 	printf("%s\n",stRequestInfo.m_strReqContent.c_str());
 	printf("=======================================================================================================================================================================\n");
-	//return SUCCESS;
-	return -1;
+	return SUCCESS;
+	//return -1;
 	
 }
 
@@ -538,7 +552,7 @@ int CTaskMain::BdxGetRequestMethod(std::string &reqParams)
 	if (strcasecmp(reqParams.substr(0,reqParams.find(BLANK,0)).c_str(),REQ_TYPE_PATCH)== 0)
 	{
 		if( m_httpUri == 4 )
-			return UPDATE;
+			return PATCH;
 	}
 	return OTHERERROR;
 	

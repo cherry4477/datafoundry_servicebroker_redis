@@ -28,7 +28,7 @@ SRC:= ./src
 
 #add the lib you used here
 #LIBS := -lLib1 -lLib2 -lLib3
-LIBS :=  -lpthread -lssl -lcrypto -lrt -ldl -lm 
+LIBS :=  -lpthread -lssl -lcrypto -lrt -ldl -lm -lcurl
 
 
 #静态库要放在后面链接 
@@ -49,8 +49,8 @@ FinalOutput := $(Output)/
 SUBDIRS := $(shell find $(SRC) -type d)
 #CLEAN2 := $(shell find $(Output) -type f|xargs rm)
 #flags in makefile
-DEBUG_FLAG = -O0 -g3 -Wall -c -fmessage-length=0
-RELEASE_FLAG = -O3 -Wall -c -fmessage-length=0
+DEBUG_FLAG = -O0 -g3 -Wall -c -fmessage-length=0 -std=c++11
+RELEASE_FLAG = -O3 -Wall -c -fmessage-length=0  -std=c++11
 RM:= rm -rf
 
 #set compile flag

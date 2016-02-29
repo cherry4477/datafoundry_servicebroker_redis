@@ -27,7 +27,8 @@
 #define	ULONG				unsigned long
 #define	USHORT				unsigned short
 #define	ULONGLONG			unsigned long long
-#define uint64_t			unsigned long int
+//#define uint64_t			unsigned long int
+typedef unsigned long int  uint64_t;
 typedef unsigned int		uint32_t;
 
 
