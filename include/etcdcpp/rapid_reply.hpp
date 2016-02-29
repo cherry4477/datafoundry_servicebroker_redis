@@ -63,11 +63,22 @@ class RapidReply {
     }
 
     // OPERATIONS
+
+
     void Print() const {
         rapidjson::StringBuffer strbuf;
         rapidjson::Writer<rapidjson::StringBuffer> writer(strbuf);
         document_.Accept(writer);
         std::cerr << strbuf.GetString() << '\n';
+    }
+
+    string ReplyToString()  {
+        rapidjson::StringBuffer strbuf;
+        rapidjson::Writer<rapidjson::StringBuffer> writer(strbuf);
+        document_.Accept(writer);
+        //std::cerr << strbuf.GetString() << '\n';
+		//cout<<strbuf.GetString()<<::endl;
+		return strbuf.GetString();
     }
 
     void GetAll(KvPairs& kvPairs) {

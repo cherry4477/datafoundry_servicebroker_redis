@@ -454,8 +454,7 @@ int CTaskMain::BdxCatalog(BDXREQUEST_S& stRequestInfo)
 {
 
 	example::RapidReply reply = etcd_client.Get("/servicebroker/catalog/redisBroker/service_redis_broker_here");
-
-	reply.Print();
+	stRequestInfo.m_strReqContent = reply.ReplyToString();
 
 
 	#if 0
