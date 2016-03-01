@@ -40,11 +40,11 @@ public:
 	std::string BdxGetParamSign(const std::string& strParam, const std::string& strSign);
 	int BdxCatalog(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo);
 	int BdxProvision(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams);
-	int BdxDeProvision();
-	int BdxLastOperation();
-	int BdxUpdate();
-	int BdxBind();
-	int BdxUnbind();
+	int BdxDeProvision(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams);
+	int BdxLastOperation(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams);
+	int BdxUpdate(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams);
+	int BdxBind(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams);
+	int BdxUnbind(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams);
 	int BdxRunTask();
 	int BdxGetRequestMethod(std::string &reqParams);
 	BDXREQUESTURLINFO_S BdxGetReqUrlAndContent(std::string &reqParams);

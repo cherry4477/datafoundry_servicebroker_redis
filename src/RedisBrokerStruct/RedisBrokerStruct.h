@@ -304,6 +304,8 @@ typedef struct ResponseInfo
 	std::string keyCatalog;
 	std::string keyLastOperation;
 	std::string keyProvision;
+	std::string keyBind;
+	std::string keyBroker;
 	int queryType;
 	
 }BDXRESPONSE_S;

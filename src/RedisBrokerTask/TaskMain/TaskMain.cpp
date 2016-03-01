@@ -45,7 +45,9 @@ static const char http200ok[] = "HTTP/1.1 200 OK\r\nServer: Bdx DMP/0.1.0\r\nCac
 //static const char http200ok[] = "";
 static const char httpReq[]="GET %s HTTP/1.1\r\nHost: %s\r\nAccept-Encoding: identity\r\n\r\n";
 
-etcd::Client<example::RapidReply> etcd_client("54.222.135.148", 2379);
+std::string etcdIP="54.222.135.148";
+uint16_t etctPort = 2379;
+etcd::Client<example::RapidReply> etcd_client(etcdIP, etctPort);
 
 
 
@@ -99,6 +101,8 @@ int CTaskMain::BdxGetHttpPacket(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S &stRes
 	std::string keyCatalog = "/servicebroker/catalog/redisBroker/service_redis_broker_here";
 	std::string keyLastOperation = "/servicebroker/catalog/redisBroker/instance/last_operation/";
 	std::string keyProvision = "/servicebroker/catalog/redisBroker/instance/";
+	std::string keyBind = "/servicebroker/catalog/redisBroker/instance/service_bindings/";
+	std::string keyBroker = "/servicebroker/catalog/redisBroker/instance/service_bindings/redisbroker_info";
 
 	//Json::Reader jReader;
 	//Json::Reader *jReader= new Json::Reader(Json::Features::strictMode()); // turn on strict verify mode
@@ -130,33 +134,36 @@ int CTaskMain::BdxGetHttpPacket(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S &stRes
 	
 	m_httpType = BdxGetRequestMethod(ssContent);
 	//printf("m_httpType=%d\n",m_httpType);
+
+	stResponseInfo.keyCatalog = keyCatalog ; 
+	stResponseInfo.keyLastOperation = keyLastOperation;
+	stResponseInfo.keyProvision = keyProvision;
+	stResponseInfo.keyBind = keyBind;
+	stResponseInfo.keyBroker = keyBroker;
+	
 	
 	switch(m_httpType)
 	{
-		case CATALOG:
-				stResponseInfo.keyCatalog = keyCatalog ; 
+		case CATALOG: 
 				BdxCatalog(stRequestInfo,stResponseInfo);
 				break;
 		case PROVISION:
-				stResponseInfo.keyCatalog = keyCatalog ; 
-				stResponseInfo.keyLastOperation = keyLastOperation;
-				stResponseInfo.keyProvision = keyProvision;
 				BdxProvision(stRequestInfo,stResponseInfo,ssContent);
 				break;
 		case DEPROVISION:
-				BdxDeProvision();
+				BdxDeProvision(stRequestInfo,stResponseInfo,ssContent);
 				break;
 		case LASTOPERATION:
-				BdxLastOperation();
+				BdxLastOperation(stRequestInfo,stResponseInfo,ssContent);
 				break;
 		case PATCH:
-				BdxUpdate();
+				BdxUpdate(stRequestInfo,stResponseInfo,ssContent);
 				break;
 		case BIND:
-				BdxBind();
+				BdxBind(stRequestInfo,stResponseInfo,ssContent);
 				break;
 		case UNBIND:
-				BdxUnbind();
+				BdxUnbind(stRequestInfo,stResponseInfo,ssContent);
 				break;
 		default:
 				printf("no match mothod.....\n");
@@ -526,10 +533,10 @@ int CTaskMain::BdxProvision(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stRespons
 			//if( jValue["value"].toStyledString() != "\"1\"\n" )//not provisiong if value is not equal to 1
 			//{
 				//example::RapidReply eplySetLastOperation  = ;
-				etcd_client.Set(stResponseInfo.keyLastOperation,"0");
+				etcd_client.Set(stResponseInfo.keyLastOperation,"doing");
 				//example::RapidReply replySetProvision   = 
 				etcd_client.Set(stResponseInfo.keyProvision,reqUrlResult.m_ReqContent);
-				etcd_client.Set(stResponseInfo.keyLastOperation,"1");
+				etcd_client.Set(stResponseInfo.keyLastOperation,"success");
 				//replySetProvision.Print();
 			//}
 		//}
@@ -563,31 +570,102 @@ int CTaskMain::BdxProvision(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stRespons
 
 
 	printf("BdxProvision...\n");
+	delete jReader;
 	return SUCCESS;
 }
-int CTaskMain::BdxDeProvision()
+int CTaskMain::BdxDeProvision(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams)
 {
+	//printf("reqParams=%s\n",reqParams.c_str());
+	std::string strInstanceId;
+	int iPos;
+	Json::Reader *jReader= new Json::Reader(Json::Features::strictMode());
+	Json::Value jValue;
+	BDXREQUESTURLINFO_S reqUrlResult = BdxGetReqUrlAndContent(reqParams);
+
+	iPos = reqUrlResult.m_ReqUrl.rfind(SLASH,reqUrlResult.m_ReqUrl.length());
+	strInstanceId = reqUrlResult.m_ReqUrl.substr(iPos + 1);
+
+	stResponseInfo.keyLastOperation = stResponseInfo.keyLastOperation + strInstanceId;
+	stResponseInfo.keyProvision = stResponseInfo.keyProvision + strInstanceId;
+	
+	etcd_client.Delete(stResponseInfo.keyProvision);
+	etcd_client.Delete(stResponseInfo.keyLastOperation);
+
 	printf("BdxDeProvision...\n");
+	delete jReader;
 	return SUCCESS;
 }
-int CTaskMain::BdxLastOperation()
+int CTaskMain::BdxLastOperation(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams)
 {
+	//printf("reqParams=%s\n",reqParams.c_str());
+	std::string strInstanceId;
+	int iPos,jPos;
+	Json::Reader *jReader= new Json::Reader(Json::Features::strictMode());
+	Json::Value jValue;
+	BDXREQUESTURLINFO_S reqUrlResult = BdxGetReqUrlAndContent(reqParams);
+
+	iPos = reqUrlResult.m_ReqUrl.rfind(SLASH,reqUrlResult.m_ReqUrl.length());
+	jPos = reqUrlResult.m_ReqUrl.rfind(SLASH,iPos - 1);
+	printf("ipos=%d,jpos=%d\n",iPos,jPos);
+	strInstanceId = reqUrlResult.m_ReqUrl.substr(jPos + 1,iPos - jPos -1);
+
+	printf("strInstanceId=%s\n",strInstanceId.c_str());
+	stResponseInfo.keyLastOperation = stResponseInfo.keyLastOperation + strInstanceId;
+	stResponseInfo.keyProvision = stResponseInfo.keyProvision + strInstanceId;
+   
+	//example::RapidReply eplySetLastOperation  = ;
+	//etcd_client.Set(stResponseInfo.keyLastOperation,"0");
+	//example::RapidReply replySetProvision   = 
+	//etcd_client.Set(stResponseInfo.keyProvision,reqUrlResult.m_ReqContent);
+	example::RapidReply replyGetLastOperation  = etcd_client.Get(stResponseInfo.keyLastOperation);
+	//replySetProvision.Print();
+	stRequestInfo.m_strReqContent = replyGetLastOperation.ReplyToString();
+
 	printf("BdxLastOperation...\n");
+	delete jReader;
 	return SUCCESS;
 }
-int CTaskMain::BdxUpdate()
+int CTaskMain::BdxUpdate(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams)
 {
 	printf("BdxUpdate...\n");
 	return SUCCESS;
 }
-int CTaskMain::BdxBind()
+int CTaskMain::BdxBind(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams)
 {
+	//printf("reqParams=%s\n",reqParams.c_str());
+	std::string strInstanceId,strBindId;
+	int iPos;
+	Json::Reader *jReader= new Json::Reader(Json::Features::strictMode());
+	Json::Value jValue;
+	BDXREQUESTURLINFO_S reqUrlResult = BdxGetReqUrlAndContent(reqParams);
+
+	iPos = reqUrlResult.m_ReqUrl.rfind(SLASH,reqUrlResult.m_ReqUrl.length());
+	strBindId = reqUrlResult.m_ReqUrl.substr(iPos + 1);
+
+	stResponseInfo.keyBind = stResponseInfo.keyBind + strBindId;
+	example::RapidReply replySetBind  = etcd_client.Set(stResponseInfo.keyBind,reqUrlResult.m_ReqContent);
+	example::RapidReply replyGetRedisBrokerInfo = etcd_client.Get(stResponseInfo.keyBroker);
+	stRequestInfo.m_strReqContent = replyGetRedisBrokerInfo.ReplyToString();
 	printf("BdxBind...\n");
+	delete jReader;
 	return SUCCESS;
 }
-int CTaskMain::BdxUnbind()
+int CTaskMain::BdxUnbind(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams)
 {
+	std::string strBindId;
+	int iPos;
+	Json::Reader *jReader= new Json::Reader(Json::Features::strictMode());
+	Json::Value jValue;
+	BDXREQUESTURLINFO_S reqUrlResult = BdxGetReqUrlAndContent(reqParams);
+
+	iPos = reqUrlResult.m_ReqUrl.rfind(SLASH,reqUrlResult.m_ReqUrl.length());
+	strBindId = reqUrlResult.m_ReqUrl.substr(iPos + 1);
+
+	stResponseInfo.keyBind = stResponseInfo.keyBind + strBindId;
+	example::RapidReply replyGetLastOperation  = etcd_client.Delete(stResponseInfo.keyBind);
+	stRequestInfo.m_strReqContent = replyGetLastOperation.ReplyToString();
 	printf("BdxUnbind...\n");
+	delete jReader;
 	return SUCCESS;
 }
 
