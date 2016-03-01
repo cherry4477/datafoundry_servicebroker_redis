@@ -112,7 +112,7 @@ bool CUserQueryWorkThreads::AdWorkInit(const IPPORT_S& stRedisServer,const IPPOR
 	sprintf(chPort,"%d",stRedisServer.m_uiPort);
 	sprintf(chIdx,"%d",stRedisServer.m_idx);
 	string strServerList = string(chCount)+";"+string(stRedisServer.m_pchIp)+":"+string(chPort)+","+string(chIdx)+";";
-	m_pDataRedis->Init(strServerList.c_str());
+	//m_pDataRedis->Init(strServerList.c_str());
   	//printf("Redis Server=%s\n",strServerList.c_str());
 
 	TASKQUE_S* pstTaskQue = new TASKQUE_S;

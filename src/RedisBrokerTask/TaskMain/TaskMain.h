@@ -38,8 +38,8 @@ public:
 	std::string BdxGenNonce(int length);
 	std::string GenPasswordDigest(std::string utcTime, std::string nonce, std::string appSecret);
 	std::string BdxGetParamSign(const std::string& strParam, const std::string& strSign);
-	int BdxCatalog(BDXREQUEST_S& stRequestInfo);
-	int BdxProvision();
+	int BdxCatalog(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo);
+	int BdxProvision(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams);
 	int BdxDeProvision();
 	int BdxLastOperation();
 	int BdxUpdate();
@@ -47,6 +47,7 @@ public:
 	int BdxUnbind();
 	int BdxRunTask();
 	int BdxGetRequestMethod(std::string &reqParams);
+	BDXREQUESTURLINFO_S BdxGetReqUrlAndContent(std::string &reqParams);
 	int BdxGetRequestURI(std::string &reqParams);
 
 private:

@@ -42,11 +42,14 @@
 #define	ULONG				unsigned long
 #define	USHORT				unsigned short
 #define	ULONGLONG			unsigned long long
-#define uint64_t			unsigned long int
+//#define uint64_t			unsigned long int
 
 #define	CTRL_T			'\t'
 #define	CTRL_R			'\r'
 #define	CTRL_N			'\n'
+
+#define	CTRL_N_N			"\r\n\r\n"
+
 
 
 #define	SEC_Q			'?'
@@ -56,6 +59,8 @@
 #define	SEC_R			']'
 
 #define	BLANK			' '
+#define	SLASH			'/'
+
 #define	EQUAL			'='
 #define	REMARK			'#'
 
@@ -108,13 +113,9 @@
 #define PROVISION 		2
 #define DEPROVISION 	3
 #define LASTOPERATION	4
-#define UPDATE			5
+#define PATCH			5
 #define BIND			6
 #define UNBIND			7
-
-
-
-//#define NULLSTRING    	 string("")
 
 
 typedef unsigned int		uint32_t;
@@ -299,25 +300,23 @@ typedef struct ResponseInfo
 	struct timeval timeStamp;
 	std::string mResValue;
 	std::string ssUserCountKeyReq;
-	std::string ssUserCountKeyReqError;
-	std::string ssUserCountKeyRes;
-	std::string ssUserCountKeyEmptyRes;
-	std::string ssUserCountKeyLimitReq;
-	std::string ssUserCountKeyUserLimitReq;
-	std::string ssUserCountKeyGoodsRes;
-	std::string ssUserCountKeyGoodsLimitReq;
-	std::string ssUserName;
-	std::string ssOperatorName;
-	std::string ssOperatorNameKeyReq;
-	std::string ssOperatorNameKeyReqError;
-	std::string ssOperatorNameKeyEmptyRes;
-	std::string ssOperatorNameKeyRes;
-	std::string ssOperatorNameKeyResTag;
-	std::string ssOperatorNameKeyLimit;
 	std::string ssErrorMsg;
+	std::string keyCatalog;
+	std::string keyLastOperation;
+	std::string keyProvision;
 	int queryType;
 	
 }BDXRESPONSE_S;
+
+typedef struct RequestUrlInfo
+{
+	struct timeval timeStamp;
+	std::string m_ReqUrl;
+	std::string m_ReqContent;
+	int queryType;
+	
+}BDXREQUESTURLINFO_S;
+
 
 typedef struct ReqPermission
 {

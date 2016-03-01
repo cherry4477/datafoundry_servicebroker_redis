@@ -96,6 +96,10 @@ int CTaskMain::BdxRunTask(BDXREQUEST_S& stRequestInfo, BDXRESPONSE_S& stResponse
 int CTaskMain::BdxGetHttpPacket(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S &stResponseInfo)
 {
 	int iRes = 0;
+	std::string keyCatalog = "/servicebroker/catalog/redisBroker/service_redis_broker_here";
+	std::string keyLastOperation = "/servicebroker/catalog/redisBroker/instance/last_operation/";
+	std::string keyProvision = "/servicebroker/catalog/redisBroker/instance/";
+
 	//Json::Reader jReader;
 	//Json::Reader *jReader= new Json::Reader(Json::Features::strictMode()); // turn on strict verify mode
 
@@ -125,15 +129,19 @@ int CTaskMain::BdxGetHttpPacket(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S &stRes
 
 	
 	m_httpType = BdxGetRequestMethod(ssContent);
-	printf("m_httpType=%d\n",m_httpType);
+	//printf("m_httpType=%d\n",m_httpType);
 	
 	switch(m_httpType)
 	{
 		case CATALOG:
-				BdxCatalog(stRequestInfo);
+				stResponseInfo.keyCatalog = keyCatalog ; 
+				BdxCatalog(stRequestInfo,stResponseInfo);
 				break;
 		case PROVISION:
-				BdxProvision();
+				stResponseInfo.keyCatalog = keyCatalog ; 
+				stResponseInfo.keyLastOperation = keyLastOperation;
+				stResponseInfo.keyProvision = keyProvision;
+				BdxProvision(stRequestInfo,stResponseInfo,ssContent);
 				break;
 		case DEPROVISION:
 				BdxDeProvision();
@@ -157,7 +165,7 @@ int CTaskMain::BdxGetHttpPacket(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S &stRes
 				break;
 
 	}
-	printf("ssContent=%s\n",ssContent.c_str());
+	//printf("ssContent=%s\n",ssContent.c_str());
 	return SUCCESS;
 	
 	}
@@ -450,10 +458,10 @@ std::string CTaskMain::BdxGetParamSign(const std::string& strParam, const std::s
     return std::string(pszMd5Hex);
 }
 
-int CTaskMain::BdxCatalog(BDXREQUEST_S& stRequestInfo)
+int CTaskMain::BdxCatalog(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo)
 {
 
-	example::RapidReply reply = etcd_client.Get("/servicebroker/catalog/redisBroker/service_redis_broker_here");
+	example::RapidReply reply = etcd_client.Get(stResponseInfo.keyCatalog);
 	stRequestInfo.m_strReqContent = reply.ReplyToString();
 
 
@@ -491,8 +499,69 @@ int CTaskMain::BdxCatalog(BDXREQUEST_S& stRequestInfo)
 	
 }
 
-int CTaskMain::BdxProvision()
+int CTaskMain::BdxProvision(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams)
 {
+	//printf("reqParams=%s\n",reqParams.c_str());
+	std::string strInstanceId;
+	int iPos;
+	Json::Reader *jReader= new Json::Reader(Json::Features::strictMode());
+	Json::Value jValue;
+	BDXREQUESTURLINFO_S reqUrlResult = BdxGetReqUrlAndContent(reqParams);
+
+	iPos = reqUrlResult.m_ReqUrl.rfind(SLASH,reqUrlResult.m_ReqUrl.length());
+	strInstanceId = reqUrlResult.m_ReqUrl.substr(iPos + 1);
+
+	stResponseInfo.keyLastOperation = stResponseInfo.keyLastOperation + strInstanceId;
+	stResponseInfo.keyProvision = stResponseInfo.keyProvision + strInstanceId;
+   
+	//static const char httpReq[]="GET %s HTTP/1.1\r\nHost: %s\r\nAccept-Encoding: identity\r\n\r\n";
+
+	//example::RapidReply replyGetLastOperation= etcd_client.Get(stResponseInfo.keyLastOperation);
+	//replyGetLastOperation.Print();
+	//if(jReader->parse(replyGetLastOperation.ReplyToString(), jValue))
+	//{
+	//	if(jReader->parse(jValue["node"].toStyledString(), jValue))
+	//	{
+			//printf("jValue[\"value\"]=%s\n",jValue["value"].toStyledString().c_str());
+			//if( jValue["value"].toStyledString() != "\"1\"\n" )//not provisiong if value is not equal to 1
+			//{
+				//example::RapidReply eplySetLastOperation  = ;
+				etcd_client.Set(stResponseInfo.keyLastOperation,"0");
+				//example::RapidReply replySetProvision   = 
+				etcd_client.Set(stResponseInfo.keyProvision,reqUrlResult.m_ReqContent);
+				etcd_client.Set(stResponseInfo.keyLastOperation,"1");
+				//replySetProvision.Print();
+			//}
+		//}
+		//else
+		//{
+			//printf("parse json error\n");
+		//}
+		
+	//}
+	//else
+	//{
+	//	printf("parse json error\n");
+	//}
+	
+	//printf("jValue=%s\n",jValue.toStyledString().c_str());
+	
+
+	//example::RapidReply reply2 = etcd_client.Set(stResponseInfo.keyLastOperation,"0");
+	
+
+	//reply2.Print();
+
+	//std::cout<<reply2.ReplyToString();
+	//example::RapidReply reply3 = etcd_client.Set(stResponseInfo.keyProvision,reqUrlResult.m_ReqContent);
+
+	
+	//printf("strInstanceId=%s\n",strInstanceId.c_str());
+	//printf("m_ReqUrl=%s\n",reqUrlResult.m_ReqUrl.c_str());
+	//printf("====================\n");
+	//printf("m_ReqContent=%s\n",reqUrlResult.m_ReqContent.c_str());
+
+
 	printf("BdxProvision...\n");
 	return SUCCESS;
 }
@@ -527,7 +596,6 @@ int CTaskMain::BdxGetRequestMethod(std::string &reqParams)
 	m_httpUri = BdxGetRequestURI(reqParams);
 	if (strcasecmp(reqParams.substr(0,reqParams.find(BLANK,0)).c_str(),REQ_TYPE_GET)== 0)
 	{	
-		printf("+++++++++++++++reqParams=%s\n",reqParams.c_str());
 		if( m_httpUri == 1 )
 			return CATALOG;
 		if( m_httpUri == 2 )
@@ -579,6 +647,20 @@ int CTaskMain::BdxGetRequestURI(std::string &reqParams)
 	return OTHERERROR;
 	
 }
+
+BDXREQUESTURLINFO_S CTaskMain::BdxGetReqUrlAndContent(std::string &reqParams)
+{
+	BDXREQUESTURLINFO_S reqResult;
+	int iFirstBlank = reqParams.find(BLANK,0);
+	int jSecondBlank = reqParams.find(BLANK,iFirstBlank + 1);
+	int mFirst2Return = reqParams.find(CTRL_N_N,0);// find /n/n
+	
+	reqResult.m_ReqUrl = reqParams.substr(iFirstBlank + 1,jSecondBlank - iFirstBlank -1);
+	reqResult.m_ReqContent = reqParams.substr(mFirst2Return + 4);
+	
+	return reqResult;
+}
+
 
 
 
