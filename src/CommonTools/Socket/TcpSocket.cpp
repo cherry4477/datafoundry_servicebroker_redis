@@ -392,7 +392,6 @@ bool CTcpSocket:: TcpClose()
 	so_linger.l_onoff = true;
 	so_linger.l_linger = 0;
 	setsockopt(m_iSockfd,SOL_SOCKET,SO_LINGER,&so_linger,sizeof(so_linger));
-	printf("Line:%d,m_iSockfd=%d is closing \n",__LINE__,m_iSockfd);
 	if(m_bConnect) {
 		if(m_iSockfd != -1)
 		{

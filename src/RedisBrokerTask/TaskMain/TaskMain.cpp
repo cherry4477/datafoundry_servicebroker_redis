@@ -51,7 +51,10 @@ static const char httpReq[]="GET %s HTTP/1.1\r\nHost: %s\r\nAccept-Encoding: ide
 
 extern std::string g_remoteIp;				
 extern uint16_t g_remotePort;
-etcd::Client<example::RapidReply>etcd_client("54.222.135.148", 2379);
+extern std::string g_serviceBrokerUser;	
+extern std::string g_serviceBrokerPass;
+
+etcd::Client<example::RapidReply>etcd_client(getenv("ETCD_IP"),atoi(getenv("ETCD_PORT")));
 
 
 CTaskMain::CTaskMain(CTcpSocket* pclSock):CUserQueryTask(pclSock)

@@ -34,6 +34,12 @@ string m_strErrorMsg;
 std::map<std::string,QUERYAPIINFO_S> g_vecUrlAPIS;
 std::string g_remoteIp;				
 uint16_t g_remotePort;
+std::string g_serviceBrokerUser;	
+std::string g_serviceBrokerPass;	
+
+
+
+
 
 CUserQueryMain::CUserQueryMain(char* pchConfFile) {
 	if(!BdxInitConfig(pchConfFile)) {
@@ -491,7 +497,10 @@ bool CUserQueryMain::BdxGetServerUrlAPI(CConf *pCConf, char *pszSection)
 
 	g_remoteIp.assign(it->first,0,it->first.find(":",0)); 
 	g_remotePort = atoi(it->first.substr(it->first.find(":",0)+1).c_str());
-	printf("g_remotePort=%d,g_remotePort=%s\n",g_remotePort,g_remoteIp.c_str());
+	g_serviceBrokerUser = std::string(it->second.mParam);
+	g_serviceBrokerPass = it->second.mProvince;
+	
+	printf("g_serviceBrokerUser=%s,g_serviceBrokerPass=%s\n",g_serviceBrokerUser.c_str(),g_serviceBrokerPass.c_str());
 
 	
 	return true;
