@@ -115,12 +115,16 @@ int CTaskMain::BdxGetHttpPacket(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S &stRes
 	if(iRes <= (int)http.length()) 
 	{		
 		LOG(DEBUG, "[thread: %d]Read Socket Error [%d].", m_uiThreadId, iRes);
-		//stResponseInfo.ssErrorMsg="E0001";
 		return LINKERROR;
 	}
-
 	std::string ssContent = std::string(m_pszAdxBuf);
 	printf("File:%s,Line:%d,ssContent=%s\n",__FILE__,__LINE__,ssContent.c_str());
+	if(BdxCheckPasswordAndUsername(ssContent)!=SUCCESS)
+	{
+		stResponseInfo.ssErrorMsg="Authorized Failed!";
+		return LINKERROR;
+	}
+	
 	m_httpType = BdxGetRequestMethod(ssContent);
 	stResponseInfo.keyCatalog = keyCatalog ; 
 	stResponseInfo.keyLastOperation = keyLastOperation;
@@ -471,6 +475,35 @@ int CTaskMain::BdxCheckRemoteServer(std::string serverIP,uint16_t serverPORT)
 
 }
 
+int CTaskMain::BdxCheckPasswordAndUsername(std::string strContent)
+{
+	std::string strAuthString;
+	std::string strRedisPass;
+	strAuthString = BdxGetAuthorization(strContent);
+	strAuthString  = base64_decode(strAuthString);
+	strRedisPass = BdxGenNonce(20); 
+	printf("strRedisPass=%s\n",strRedisPass.c_str());
+	printf("strAuthString=%s\n",strAuthString.c_str());
+	return strAuthString.compare(g_serviceBrokerUser+":"+g_serviceBrokerPass);
+
+}
+std::string CTaskMain::BdxGetAuthorization(std::string strContent)
+{
+	std::string strAuthString = "Authorization";
+	std::string strBasic = "Basic";
+	
+	int iPos = strContent.find(strAuthString,0);
+	int jPos = strContent.find(strBasic,iPos);
+	int kPos = strContent.find(CTRL_N,jPos);
+
+	if ((iPos == std::string::npos)||(jPos == std::string::npos)||(kPos == std::string::npos))
+	{
+		strAuthString = "";
+		return strAuthString;
+	}
+	strAuthString = strContent.substr(jPos + strBasic.length()+1,kPos - (jPos + strBasic.length()) );
+	return strAuthString;
+}
 int CTaskMain::BdxCheckEtcdKeyIsExists(BDXRESPONSE_S& stResponseInfo,std::string serverIP,uint16_t serverPORT,std::string etcdKey)
 {
 	CTcpSocket* remoteSocket;	

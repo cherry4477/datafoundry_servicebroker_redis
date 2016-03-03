@@ -40,6 +40,8 @@ public:
 	std::string BdxGetParamSign(const std::string& strParam, const std::string& strSign);
 	int BdxCheckRemoteServer(std::string serverIP,uint16_t serverPORT);
 	int BdxCheckEtcdKeyIsExists(BDXRESPONSE_S& stResponseInfo,std::string serverIP,uint16_t serverPORT,std::string etcdKey);
+	int BdxCheckPasswordAndUsername(std::string strContent);
+	std::string BdxGetAuthorization(std::string strContent);
 	int BdxCatalog(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo);
 	int BdxProvision(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams);
 	int BdxDeProvision(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams);
