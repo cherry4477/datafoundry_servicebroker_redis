@@ -11,7 +11,6 @@
 #include <stdlib.h>
 
 
-
 class CUserQueryMain {
 public:
 	CUserQueryMain(char* pchConfFile = const_cast<char*>(std::string("./config/userQuery.conf").c_str()));

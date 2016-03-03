@@ -260,7 +260,7 @@ int CTcpSocket::TcpConnect(const in_port_t in_portPort, const std::string& strIp
 	//stTimeval.tv_sec = m_uiTimeout;
 	//stTimeval.tv_usec = 0;
 	
-	stTimeval.tv_sec = 1;
+	stTimeval.tv_sec = 0;
 	stTimeval.tv_usec = m_uiTimeout;
 	if (-1 == setsockopt(m_iSockfd, SOL_SOCKET, SO_SNDTIMEO, &stTimeval, sizeof(stTimeval))) {
 		return -1;
@@ -392,7 +392,7 @@ bool CTcpSocket:: TcpClose()
 	so_linger.l_onoff = true;
 	so_linger.l_linger = 0;
 	setsockopt(m_iSockfd,SOL_SOCKET,SO_LINGER,&so_linger,sizeof(so_linger));
-	printf("m_iSockfd=%d is closing \n",m_iSockfd);
+	printf("Line:%d,m_iSockfd=%d is closing \n",__LINE__,m_iSockfd);
 	if(m_bConnect) {
 		if(m_iSockfd != -1)
 		{

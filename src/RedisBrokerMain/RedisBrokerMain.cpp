@@ -32,6 +32,8 @@ string m_strErrorMsg;
 
 //std::map<std::string,int> g_mapUserQueryLimit;
 std::map<std::string,QUERYAPIINFO_S> g_vecUrlAPIS;
+std::string g_remoteIp;				
+uint16_t g_remotePort;
 
 CUserQueryMain::CUserQueryMain(char* pchConfFile) {
 	if(!BdxInitConfig(pchConfFile)) {
@@ -465,10 +467,10 @@ bool CUserQueryMain::BdxGetServerUrlAPI(CConf *pCConf, char *pszSection)
 					        	sQueryInfo.mProvince = string(temp[index-2]);
 					        	memcpy(sQueryInfo.mCarrierOperator, temp[index-1], BUF_SIZE_8BYTE);
 					        	sQueryInfo.mQueryLimits = atol(temp[index]);
-					        	printf("sQueryInfo.mParam2=%s\n",sQueryInfo.mParam);
-					        	printf("sQueryInfo.mParam3=%s\n",sQueryInfo.mProvince.c_str());
-					        	printf("sQueryInfo.mParam4=%s\n",sQueryInfo.mCarrierOperator);
-					        	printf("sQueryInfo.mParam5=%ld\n",sQueryInfo.mQueryLimits);
+					        	//printf("sQueryInfo.mParam2=%s\n",sQueryInfo.mParam);
+					        	//printf("sQueryInfo.mParam3=%s\n",sQueryInfo.mProvince.c_str());
+					        	//printf("sQueryInfo.mParam4=%s\n",sQueryInfo.mCarrierOperator);
+					        	//printf("sQueryInfo.mParam5=%ld\n",sQueryInfo.mQueryLimits);
 					            g_vecUrlAPIS[temp[index-4]]=sQueryInfo;
 					        }
 					        index++;
@@ -484,6 +486,14 @@ bool CUserQueryMain::BdxGetServerUrlAPI(CConf *pCConf, char *pszSection)
 		}
 	}
 	pszSection[0] = 0;//set section
+
+	std::map<std::string,QUERYAPIINFO_S>::iterator it=g_vecUrlAPIS.begin();
+
+	g_remoteIp.assign(it->first,0,it->first.find(":",0)); 
+	g_remotePort = atoi(it->first.substr(it->first.find(":",0)+1).c_str());
+	printf("g_remotePort=%d,g_remotePort=%s\n",g_remotePort,g_remoteIp.c_str());
+
+	
 	return true;
 }
 

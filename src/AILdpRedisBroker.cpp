@@ -19,8 +19,6 @@ static void SignalCore (int a){
 
 std::string strServerName;
 std::string strConfigFileName;
-
-
  
 int main(int argc, char *argv[]) {
 

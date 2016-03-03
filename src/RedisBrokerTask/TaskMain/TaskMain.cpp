@@ -12,6 +12,7 @@
 #include "../../../include/etcdcpp/rapid_reply.hpp"
 //#include "../../../include/etcdcpp/etcd.hpp"
 
+
 #include <arpa/inet.h>
 #include <stdlib.h>
 #include <openssl/ssl.h>
@@ -41,14 +42,16 @@ int InitSSLFlag = 0;
 
 static const string http=" HTTP/1.1";
 
-static const char http200ok[] = "HTTP/1.1 200 OK\r\nServer: Bdx DMP/0.1.0\r\nCache-Control: must-revalidate\r\nExpires: Thu, 01 Jan 1970 00:00:00 GMT\r\nPragma: no-cache\r\nConnection: Keep-Alive\r\nContent-Type: application/json;charset=UTF-8\r\nDate: ";
+static const char http200ok[] = "HTTP/1.1 200 OK\r\nServer: Bdx LDP/0.1.0\r\nCache-Control: must-revalidate\r\nExpires: Thu, 01 Jan 1970 00:00:00 GMT\r\nPragma: no-cache\r\nConnection: Keep-Alive\r\nContent-Type: application/json;charset=UTF-8\r\nDate: ";
 //static const char http200ok[] = "";
 static const char httpReq[]="GET %s HTTP/1.1\r\nHost: %s\r\nAccept-Encoding: identity\r\n\r\n";
 
-std::string etcdIP="54.222.135.148";
-uint16_t etctPort = 2379;
-etcd::Client<example::RapidReply> etcd_client(etcdIP, etctPort);
+//std::string etcdIP="54.222.135.148";
+//uint16_t etctPort = 2379;
 
+extern std::string g_remoteIp;				
+extern uint16_t g_remotePort;
+etcd::Client<example::RapidReply>etcd_client("54.222.135.148", 2379);
 
 
 CTaskMain::CTaskMain(CTcpSocket* pclSock):CUserQueryTask(pclSock)
@@ -80,7 +83,6 @@ int CTaskMain::BdxRunTask(BDXREQUEST_S& stRequestInfo, BDXRESPONSE_S& stResponse
 		LOG(ERROR, "[thread: %d]m_pclSock is NULL.", m_uiThreadId);
 		return LINKERROR;
 	}
-
 	iRes = 	BdxGetHttpPacket(stRequestInfo,stResponseInfo);	
 	if(iRes == SUCCESS )//&& !stRequestInfo.m_strUserID.empty() /*&& m_bSend*/) 
 	{
@@ -88,8 +90,7 @@ int CTaskMain::BdxRunTask(BDXREQUEST_S& stRequestInfo, BDXRESPONSE_S& stResponse
 	}
 	else
 	{
-		//stResponseInfo.ssErrorMsg="E0001";
-		return BdxSendEmpyRespones(stRequestInfo.m_strReqContent);
+		return BdxSendEmpyRespones(stResponseInfo.ssErrorMsg);
 	}
 	return iRes;
 }
@@ -103,67 +104,51 @@ int CTaskMain::BdxGetHttpPacket(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S &stRes
 	std::string keyProvision = "/servicebroker/catalog/redisBroker/instance/";
 	std::string keyBind = "/servicebroker/catalog/redisBroker/instance/service_bindings/";
 	std::string keyBroker = "/servicebroker/catalog/redisBroker/instance/service_bindings/redisbroker_info";
-
-	//Json::Reader jReader;
-	//Json::Reader *jReader= new Json::Reader(Json::Features::strictMode()); // turn on strict verify mode
-
-	//char *temp[PACKET]; 
-	//int  index = 0;
 	char bufTemp[PACKET];
-	//char *buf;
-	//char *buf2;
-	//char *outer_ptr = NULL;  
-	//char *inner_ptr = NULL;  
-	char m_httpReq[_8KBLEN];
-
-	memset(m_httpReq, 0, _8KBLEN);
+	
 	memset(bufTemp, 0, PACKET);
 	memset(m_pszAdxBuf, 0, _8KBLEN);
-	
 	iRes = m_pclSock->TcpRead(m_pszAdxBuf, _8KBLEN);
-
 	if(iRes <= (int)http.length()) 
 	{		
 		LOG(DEBUG, "[thread: %d]Read Socket Error [%d].", m_uiThreadId, iRes);
-		stResponseInfo.ssErrorMsg="E0001";
+		//stResponseInfo.ssErrorMsg="E0001";
 		return LINKERROR;
 	}
 
 	std::string ssContent = std::string(m_pszAdxBuf);
-
-	
+	printf("File:%s,Line:%d,ssContent=%s\n",__FILE__,__LINE__,ssContent.c_str());
 	m_httpType = BdxGetRequestMethod(ssContent);
-	//printf("m_httpType=%d\n",m_httpType);
-
 	stResponseInfo.keyCatalog = keyCatalog ; 
 	stResponseInfo.keyLastOperation = keyLastOperation;
 	stResponseInfo.keyProvision = keyProvision;
 	stResponseInfo.keyBind = keyBind;
 	stResponseInfo.keyBroker = keyBroker;
 	
-	
+	printf("File:%s,Line:%d,m_httpType=%d\n",__FILE__,__LINE__,m_httpType);
+
 	switch(m_httpType)
 	{
 		case CATALOG: 
-				BdxCatalog(stRequestInfo,stResponseInfo);
+				iRes = BdxCatalog(stRequestInfo,stResponseInfo);
 				break;
 		case PROVISION:
-				BdxProvision(stRequestInfo,stResponseInfo,ssContent);
+				iRes = BdxProvision(stRequestInfo,stResponseInfo,ssContent);
 				break;
 		case DEPROVISION:
-				BdxDeProvision(stRequestInfo,stResponseInfo,ssContent);
+				iRes = BdxDeProvision(stRequestInfo,stResponseInfo,ssContent);
 				break;
 		case LASTOPERATION:
-				BdxLastOperation(stRequestInfo,stResponseInfo,ssContent);
+				iRes = BdxLastOperation(stRequestInfo,stResponseInfo,ssContent);
 				break;
 		case PATCH:
-				BdxUpdate(stRequestInfo,stResponseInfo,ssContent);
+				iRes = BdxUpdate(stRequestInfo,stResponseInfo,ssContent);
 				break;
 		case BIND:
-				BdxBind(stRequestInfo,stResponseInfo,ssContent);
+				iRes = BdxBind(stRequestInfo,stResponseInfo,ssContent);
 				break;
 		case UNBIND:
-				BdxUnbind(stRequestInfo,stResponseInfo,ssContent);
+				iRes = BdxUnbind(stRequestInfo,stResponseInfo,ssContent);
 				break;
 		default:
 				printf("no match mothod.....\n");
@@ -172,8 +157,7 @@ int CTaskMain::BdxGetHttpPacket(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S &stRes
 				break;
 
 	}
-	//printf("ssContent=%s\n",ssContent.c_str());
-	return SUCCESS;
+	return iRes;
 	
 	}
 
@@ -465,14 +449,96 @@ std::string CTaskMain::BdxGetParamSign(const std::string& strParam, const std::s
     return std::string(pszMd5Hex);
 }
 
-int CTaskMain::BdxCatalog(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo)
+
+int CTaskMain::BdxCheckRemoteServer(std::string serverIP,uint16_t serverPORT)
 {
 
+	CTcpSocket* remoteSocket;				
+	int iResult = SUCCESS;
+
+	remoteSocket=new CTcpSocket(serverPORT,serverIP);
+	if(remoteSocket->TcpConnect()!=0)
+	{
+		remoteSocket->TcpClose();
+		iResult =  LINKERROR;
+	}
+	remoteSocket->TcpClose();
+	delete remoteSocket;
+	return iResult;
+
+}
+
+int CTaskMain::BdxCheckEtcdKeyIsExists(BDXRESPONSE_S& stResponseInfo,std::string serverIP,uint16_t serverPORT,std::string etcdKey)
+{
+	CTcpSocket* remoteSocket;	
+	int iResult = EXISTS;
+	char m_httpReq[_8KBLEN];
+	char remoteBuffer[_8KBLEN];
+	std::string hostInfo;
+	char chPort[5];
+	
+	memset(chPort,0,5);
+	sprintf(chPort,"%d",g_remotePort);
+	hostInfo = g_remoteIp + ":" + std::string(chPort);
+	etcdKey = "/v2/keys" + etcdKey ;
+	printf("hostInfo=%s\n",hostInfo.c_str());
+	if( BdxCheckRemoteServer(g_remoteIp,g_remotePort)!=SUCCESS )
+	{
+		stResponseInfo.ssErrorMsg = E422;
+		return LINKERROR;
+	}
+
+	memset(m_httpReq, 0, _8KBLEN);
+	sprintf(m_httpReq,"GET %s HTTP/1.1\r\nHost: %s\r\nAccept-Encoding: identity\r\n\r\n",etcdKey.c_str(),hostInfo.c_str());										
+	printf("%s\n",m_httpReq);
+	remoteSocket=new CTcpSocket(serverPORT,serverIP);
+	if(remoteSocket->TcpConnect()!=0)
+	{
+		remoteSocket->TcpClose();
+		iResult =  LINKERROR;
+	}
+	else
+	{
+		if(remoteSocket->TcpWrite(m_httpReq,strlen(m_httpReq))!=0)	
+		{	
+			memset(remoteBuffer,0,_8KBLEN); 	
+			//remoteSocket->TcpReadAll(remoteBuffer,_8KBLEN);
+			remoteSocket->TcpRead(remoteBuffer,_8KBLEN);
+			if( strlen(remoteBuffer) > 0 )			
+			{					
+				stResponseInfo.mResValue = std::string(remoteBuffer);
+				if (stResponseInfo.mResValue.find("Key not found")!=std::string::npos)
+				{
+					stResponseInfo.ssErrorMsg = "Key not found";
+					iResult = NOTEXISTS;
+				}
+				printf("stResponseInfo.mResValue=%s\n",stResponseInfo.mResValue.c_str());
+			}							
+		 }
+		 else
+		 {
+			iResult =  LINKERROR;
+		 }
+	}
+	remoteSocket->TcpClose();
+	delete remoteSocket;
+	return iResult;
+
+}
+
+int CTaskMain::BdxCatalog(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo)
+{
+	printf("g_remotePort=%d,g_remotePort=%s\n",g_remotePort,g_remoteIp.c_str());
+	if( BdxCheckRemoteServer(g_remoteIp,g_remotePort)!=SUCCESS )
+	{
+		stResponseInfo.ssErrorMsg = E422;
+		return LINKERROR;
+	}
+	//etcd::Client<example::RapidReply>etcd_client(g_remoteIp, g_remotePort);
 	example::RapidReply reply = etcd_client.Get(stResponseInfo.keyCatalog);
 	stRequestInfo.m_strReqContent = reply.ReplyToString();
 
-
-	#if 0
+#if 0
 	stRequestInfo.m_strReqContent="{\
 \"services\": [{\
 \"id\": \"service-guid-redis\",\
@@ -498,101 +564,85 @@ int CTaskMain::BdxCatalog(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseI
 }]\
 }";	
 #endif
-	printf("===================================================================================BdxCatalog==========================================================================\n");
-	printf("%s\n",stRequestInfo.m_strReqContent.c_str());
-	printf("=======================================================================================================================================================================\n");
+	printf("File:%s,Line:%d,BdxCatalog...\n",__FILE__,__LINE__);
 	return SUCCESS;
-	//return -1;
-	
 }
-
 int CTaskMain::BdxProvision(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams)
 {
-	//printf("reqParams=%s\n",reqParams.c_str());
 	std::string strInstanceId;
 	int iPos;
-	Json::Reader *jReader= new Json::Reader(Json::Features::strictMode());
+	//Json::Reader *jReader= new Json::Reader(Json::Features::strictMode());
 	Json::Value jValue;
 	BDXREQUESTURLINFO_S reqUrlResult = BdxGetReqUrlAndContent(reqParams);
-
+	//etcd::Client<example::RapidReply>etcd_client(g_remoteIp, g_remotePort);
 	iPos = reqUrlResult.m_ReqUrl.rfind(SLASH,reqUrlResult.m_ReqUrl.length());
 	strInstanceId = reqUrlResult.m_ReqUrl.substr(iPos + 1);
-
 	stResponseInfo.keyLastOperation = stResponseInfo.keyLastOperation + strInstanceId;
 	stResponseInfo.keyProvision = stResponseInfo.keyProvision + strInstanceId;
-   
-	//static const char httpReq[]="GET %s HTTP/1.1\r\nHost: %s\r\nAccept-Encoding: identity\r\n\r\n";
-
-	//example::RapidReply replyGetLastOperation= etcd_client.Get(stResponseInfo.keyLastOperation);
-	//replyGetLastOperation.Print();
-	//if(jReader->parse(replyGetLastOperation.ReplyToString(), jValue))
-	//{
-	//	if(jReader->parse(jValue["node"].toStyledString(), jValue))
-	//	{
-			//printf("jValue[\"value\"]=%s\n",jValue["value"].toStyledString().c_str());
-			//if( jValue["value"].toStyledString() != "\"1\"\n" )//not provisiong if value is not equal to 1
-			//{
-				//example::RapidReply eplySetLastOperation  = ;
-				etcd_client.Set(stResponseInfo.keyLastOperation,"doing");
-				//example::RapidReply replySetProvision   = 
-				etcd_client.Set(stResponseInfo.keyProvision,reqUrlResult.m_ReqContent);
-				etcd_client.Set(stResponseInfo.keyLastOperation,"success");
-				//replySetProvision.Print();
-			//}
-		//}
-		//else
-		//{
-			//printf("parse json error\n");
-		//}
-		
-	//}
-	//else
-	//{
-	//	printf("parse json error\n");
-	//}
-	
-	//printf("jValue=%s\n",jValue.toStyledString().c_str());
-	
-
-	//example::RapidReply reply2 = etcd_client.Set(stResponseInfo.keyLastOperation,"0");
-	
-
-	//reply2.Print();
-
-	//std::cout<<reply2.ReplyToString();
-	//example::RapidReply reply3 = etcd_client.Set(stResponseInfo.keyProvision,reqUrlResult.m_ReqContent);
-
-	
-	//printf("strInstanceId=%s\n",strInstanceId.c_str());
-	//printf("m_ReqUrl=%s\n",reqUrlResult.m_ReqUrl.c_str());
-	//printf("====================\n");
-	//printf("m_ReqContent=%s\n",reqUrlResult.m_ReqContent.c_str());
-
-
-	printf("BdxProvision...\n");
-	delete jReader;
+	if( BdxCheckRemoteServer(g_remoteIp,g_remotePort)!=SUCCESS )
+	{
+		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
+		return LINKERROR;
+	}
+	if (BdxCheckEtcdKeyIsExists(stResponseInfo,g_remoteIp,g_remotePort,stResponseInfo.keyLastOperation) == OTHERERROR )
+	{	
+		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
+		return LINKERROR;
+	}
+	if (BdxCheckEtcdKeyIsExists(stResponseInfo,g_remoteIp,g_remotePort,stResponseInfo.keyLastOperation) == NOTEXISTS  )
+	{
+		etcd_client.Set(stResponseInfo.keyLastOperation,"doing");
+		etcd_client.Set(stResponseInfo.keyProvision,reqUrlResult.m_ReqContent);
+		etcd_client.Set(stResponseInfo.keyLastOperation,"success");
+		stRequestInfo.m_strReqContent = E200;
+	}
+	else
+	{
+		stResponseInfo.ssErrorMsg = E409;
+		return LINKERROR;
+	}
+	printf("File:%s,Line:%d,BdxProvision...\n",__FILE__,__LINE__);
+	//delete jReader;
 	return SUCCESS;
 }
 int CTaskMain::BdxDeProvision(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams)
 {
-	//printf("reqParams=%s\n",reqParams.c_str());
 	std::string strInstanceId;
 	int iPos;
-	Json::Reader *jReader= new Json::Reader(Json::Features::strictMode());
+	//Json::Reader *jReader= new Json::Reader(Json::Features::strictMode());
 	Json::Value jValue;
 	BDXREQUESTURLINFO_S reqUrlResult = BdxGetReqUrlAndContent(reqParams);
-
+	//etcd::Client<example::RapidReply>etcd_client(g_remoteIp, g_remotePort);
 	iPos = reqUrlResult.m_ReqUrl.rfind(SLASH,reqUrlResult.m_ReqUrl.length());
 	strInstanceId = reqUrlResult.m_ReqUrl.substr(iPos + 1);
-
 	stResponseInfo.keyLastOperation = stResponseInfo.keyLastOperation + strInstanceId;
 	stResponseInfo.keyProvision = stResponseInfo.keyProvision + strInstanceId;
-	
-	etcd_client.Delete(stResponseInfo.keyProvision);
-	etcd_client.Delete(stResponseInfo.keyLastOperation);
 
-	printf("BdxDeProvision...\n");
-	delete jReader;
+	if( BdxCheckRemoteServer(g_remoteIp,g_remotePort)!=SUCCESS )
+	{
+		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
+		return LINKERROR;
+	}
+	if (BdxCheckEtcdKeyIsExists(stResponseInfo,g_remoteIp,g_remotePort,stResponseInfo.keyLastOperation) == OTHERERROR )
+	{	
+		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
+		return LINKERROR;
+	}
+	if (BdxCheckEtcdKeyIsExists(stResponseInfo,g_remoteIp,g_remotePort,stResponseInfo.keyLastOperation) == EXISTS  )
+	{
+		etcd_client.Delete(stResponseInfo.keyProvision);
+		etcd_client.Delete(stResponseInfo.keyLastOperation);
+		stRequestInfo.m_strReqContent = E200;
+	}
+	else
+	{
+		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem  or key is not exists
+		return LINKERROR;
+	}
+
+	// …æ≥˝≈‰÷√,…±À¿Ω¯≥Ã
+	printf("File:%s,Line:%d,BdxDeProvision...\n",__FILE__,__LINE__);
+	//delete jReader;
 	return SUCCESS;
 }
 int CTaskMain::BdxLastOperation(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams)
@@ -603,69 +653,146 @@ int CTaskMain::BdxLastOperation(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stRes
 	Json::Reader *jReader= new Json::Reader(Json::Features::strictMode());
 	Json::Value jValue;
 	BDXREQUESTURLINFO_S reqUrlResult = BdxGetReqUrlAndContent(reqParams);
-
+	//etcd::Client<example::RapidReply>etcd_client(g_remoteIp, g_remotePort);
 	iPos = reqUrlResult.m_ReqUrl.rfind(SLASH,reqUrlResult.m_ReqUrl.length());
 	jPos = reqUrlResult.m_ReqUrl.rfind(SLASH,iPos - 1);
-	printf("ipos=%d,jpos=%d\n",iPos,jPos);
 	strInstanceId = reqUrlResult.m_ReqUrl.substr(jPos + 1,iPos - jPos -1);
-
-	printf("strInstanceId=%s\n",strInstanceId.c_str());
 	stResponseInfo.keyLastOperation = stResponseInfo.keyLastOperation + strInstanceId;
 	stResponseInfo.keyProvision = stResponseInfo.keyProvision + strInstanceId;
-   
-	//example::RapidReply eplySetLastOperation  = ;
-	//etcd_client.Set(stResponseInfo.keyLastOperation,"0");
-	//example::RapidReply replySetProvision   = 
-	//etcd_client.Set(stResponseInfo.keyProvision,reqUrlResult.m_ReqContent);
-	example::RapidReply replyGetLastOperation  = etcd_client.Get(stResponseInfo.keyLastOperation);
-	//replySetProvision.Print();
-	stRequestInfo.m_strReqContent = replyGetLastOperation.ReplyToString();
 
-	printf("BdxLastOperation...\n");
+	if( BdxCheckRemoteServer(g_remoteIp,g_remotePort)!=SUCCESS )
+	{
+		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
+		delete jReader;
+		return LINKERROR;
+	}
+	if (BdxCheckEtcdKeyIsExists(stResponseInfo,g_remoteIp,g_remotePort,stResponseInfo.keyLastOperation) == OTHERERROR )
+	{	
+		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
+		delete jReader;
+		return LINKERROR;
+	}
+	if (BdxCheckEtcdKeyIsExists(stResponseInfo,g_remoteIp,g_remotePort,stResponseInfo.keyLastOperation) == EXISTS  )
+	{
+		example::RapidReply replyGetLastOperation= etcd_client.Get(stResponseInfo.keyLastOperation);
+		//stRequestInfo.m_strReqContent = replyGetLastOperation.ReplyToString();
+		replyGetLastOperation.Print();
+		if(jReader->parse(replyGetLastOperation.ReplyToString(), jValue))
+		{
+			if(jReader->parse(jValue["node"].toStyledString(), jValue))
+			{	 
+				if( jValue["value"].toStyledString() == "\"success\"\n" )//success is  provisioned,doing is not  provision
+				{
+					stRequestInfo.m_strReqContent = E200;
+					delete jReader;
+					return SUCCESS;
+				}
+				else
+				{
+					stResponseInfo.ssErrorMsg = E201;
+					delete jReader;
+					return OTHERERROR;
+				}
+			}
+			else
+			{
+				printf("File:%s,Line:%d,parse json error\n",__FILE__,__LINE__);
+				stResponseInfo.ssErrorMsg = E422;
+				delete jReader;
+				return OTHERERROR;
+			}
+		
+		}
+		else
+		{
+			printf("File:%s,Line:%d,parse json error\n",__FILE__,__LINE__);
+			stResponseInfo.ssErrorMsg = E422;
+			delete jReader;
+			return OTHERERROR;
+		}
+	
+   	 }
+	printf("File:%s,Line:%d,BdxLastOperation...\n",__FILE__,__LINE__);
 	delete jReader;
 	return SUCCESS;
 }
 int CTaskMain::BdxUpdate(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams)
 {
-	printf("BdxUpdate...\n");
+	printf("File:%s,Line:%d,BdxUpdate...\n",__FILE__,__LINE__);
 	return SUCCESS;
 }
 int CTaskMain::BdxBind(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams)
 {
-	//printf("reqParams=%s\n",reqParams.c_str());
 	std::string strInstanceId,strBindId;
 	int iPos;
-	Json::Reader *jReader= new Json::Reader(Json::Features::strictMode());
+	//Json::Reader *jReader= new Json::Reader(Json::Features::strictMode());
 	Json::Value jValue;
 	BDXREQUESTURLINFO_S reqUrlResult = BdxGetReqUrlAndContent(reqParams);
-
+	//etcd::Client<example::RapidReply>etcd_client(g_remoteIp, g_remotePort);
+	
 	iPos = reqUrlResult.m_ReqUrl.rfind(SLASH,reqUrlResult.m_ReqUrl.length());
 	strBindId = reqUrlResult.m_ReqUrl.substr(iPos + 1);
-
 	stResponseInfo.keyBind = stResponseInfo.keyBind + strBindId;
-	example::RapidReply replySetBind  = etcd_client.Set(stResponseInfo.keyBind,reqUrlResult.m_ReqContent);
-	example::RapidReply replyGetRedisBrokerInfo = etcd_client.Get(stResponseInfo.keyBroker);
-	stRequestInfo.m_strReqContent = replyGetRedisBrokerInfo.ReplyToString();
-	printf("BdxBind...\n");
-	delete jReader;
+
+	if( BdxCheckRemoteServer(g_remoteIp,g_remotePort)!=SUCCESS )
+	{
+		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
+		return LINKERROR;
+	}
+	if (BdxCheckEtcdKeyIsExists(stResponseInfo,g_remoteIp,g_remotePort,stResponseInfo.keyBind) == OTHERERROR )
+	{	
+		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
+		return LINKERROR;
+	}
+	if (BdxCheckEtcdKeyIsExists(stResponseInfo,g_remoteIp,g_remotePort,stResponseInfo.keyBind) == NOTEXISTS  )
+	{
+		example::RapidReply replySetBind  = etcd_client.Set(stResponseInfo.keyBind,reqUrlResult.m_ReqContent);
+		example::RapidReply replyGetRedisBrokerInfo = etcd_client.Get(stResponseInfo.keyBroker);
+		stRequestInfo.m_strReqContent = E200;
+	}
+	else
+	{
+		stResponseInfo.ssErrorMsg = E409; // etcd is someproblem
+		return LINKERROR;
+	}
+	printf("File:%s,Line:%d,BdxBind...\n",__FILE__,__LINE__);
+	//delete jReader;
 	return SUCCESS;
 }
 int CTaskMain::BdxUnbind(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams)
 {
 	std::string strBindId;
 	int iPos;
-	Json::Reader *jReader= new Json::Reader(Json::Features::strictMode());
+	//Json::Reader *jReader= new Json::Reader(Json::Features::strictMode());
 	Json::Value jValue;
 	BDXREQUESTURLINFO_S reqUrlResult = BdxGetReqUrlAndContent(reqParams);
-
+	//etcd::Client<example::RapidReply>etcd_client(g_remoteIp, g_remotePort);
 	iPos = reqUrlResult.m_ReqUrl.rfind(SLASH,reqUrlResult.m_ReqUrl.length());
 	strBindId = reqUrlResult.m_ReqUrl.substr(iPos + 1);
-
 	stResponseInfo.keyBind = stResponseInfo.keyBind + strBindId;
-	example::RapidReply replyGetLastOperation  = etcd_client.Delete(stResponseInfo.keyBind);
-	stRequestInfo.m_strReqContent = replyGetLastOperation.ReplyToString();
-	printf("BdxUnbind...\n");
-	delete jReader;
+	if( BdxCheckRemoteServer(g_remoteIp,g_remotePort)!=SUCCESS )
+	{
+		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
+		return LINKERROR;
+	}
+	if (BdxCheckEtcdKeyIsExists(stResponseInfo,g_remoteIp,g_remotePort,stResponseInfo.keyBind) == OTHERERROR )
+	{	
+		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
+		return LINKERROR;
+	}
+	if (BdxCheckEtcdKeyIsExists(stResponseInfo,g_remoteIp,g_remotePort,stResponseInfo.keyBind) == EXISTS  )
+	{
+		example::RapidReply replyDelBind  = etcd_client.Delete(stResponseInfo.keyBind);
+		stRequestInfo.m_strReqContent = E200;
+	}
+	else
+	{
+		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
+		return LINKERROR;
+	}
+
+	printf("File:%s,Line:%d,BdxUnbind...\n",__FILE__,__LINE__);
+	//delete jReader;
 	return SUCCESS;
 }
 
@@ -705,6 +832,25 @@ int CTaskMain::BdxGetRequestMethod(std::string &reqParams)
 
 int CTaskMain::BdxGetRequestURI(std::string &reqParams)
 {	
+
+	/*
+	if (reqParams.substr(reqParams.find(BLANK,0),reqParams.find(CTRL_N,0)).find("/v2/catalog")!= std::string::npos)
+	{
+		return TYPE_GET; // 1 is stand for catalog
+	}
+	if (reqParams.substr(reqParams.find(BLANK,0),reqParams.find(CTRL_N,0)).find("/last_operation")!= std::string::npos)
+	{
+		return TYPE_PUT; // 2 is stand for lastOperation
+	}
+	if (reqParams.substr(reqParams.find(BLANK,0),reqParams.find(CTRL_N,0)).find("/service_bindings")!= std::string::npos)
+	{
+		return TYPE_DELETE; // 3 is stand for bind or unbind
+	}
+	if (reqParams.substr(reqParams.find(BLANK,0),reqParams.find(CTRL_N,0)).find("/v2/service_instances")!= std::string::npos)
+	{
+		return TYPE_PATCH; // 4 is stand for provision or deprovision or patch
+	}
+	*/
 	if (reqParams.substr(reqParams.find(BLANK,0),reqParams.find(CTRL_N,0)).find("/v2/catalog")!= std::string::npos)
 	{
 		return TYPE_GET; // 1 is stand for catalog

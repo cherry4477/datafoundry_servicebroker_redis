@@ -24,6 +24,8 @@
 #define _64KBLEN			64*1024
 
 #define SUCCESS 			0
+#define EXISTS 			1
+#define NOTEXISTS 			0
 #define OTHERERROR		-1
 #define LINKERROR		-2
 #define PROTOERROR		-3
@@ -98,6 +100,14 @@
 #define NULLSTRING    	 string("")
 #define LEFTMIDBRACE     string("[")
 #define RIGHTMIDBRACE    string("]")
+
+
+#define E200 "200 OK\n"
+#define E201 "201 Created\n";
+#define E202 "202 Accepted\n"
+#define E409 "409 Conflict\n"
+#define E422 "422 Unprocessable ; Etcd server is some problem!\n"
+
 
 #if 0
 #define CATALOG 		"/v2/catalog"
