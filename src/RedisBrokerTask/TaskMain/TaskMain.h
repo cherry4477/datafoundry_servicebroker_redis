@@ -8,6 +8,8 @@
 
 #include "../RedisBrokerTask.h"
 #include "../../CommonTools/Conf/Conf.h"
+#include "../../CommonTools/File/File.h"
+
 
 class CTaskMain : public CUserQueryTask {
 
@@ -53,6 +55,8 @@ public:
 	int BdxGetRequestMethod(std::string &reqParams);
 	BDXREQUESTURLINFO_S BdxGetReqUrlAndContent(std::string &reqParams);
 	int BdxGetRequestURI(std::string &reqParams);
+	int BdxGenRedisTemplate(BDXREQUEST_S stRequestInfo,BDXRESPONSE_S stResponseInfo,std::string reqParams);
+	int BdxDelRedisTemplate(BDXREQUEST_S stRequestInfo,BDXRESPONSE_S stResponseInfo,std::string reqParams);
 
 private:
 	char m_pszAdxBuf[_8KBLEN];
@@ -66,6 +70,8 @@ private:
 	int m_httpType ;
 	int m_httpUri;
 	CConf  mConf;	
+	CFile m_clFile;
+	FILE* m_pFile;
 	std::map<std::string,std::string> m_mapUserValue;
 	CTime m_cTime;
 	
