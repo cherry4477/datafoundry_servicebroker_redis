@@ -46,7 +46,7 @@ static const char http200ok[] = "HTTP/1.1 200 OK\r\nServer: Bdx LDP/0.1.0\r\nCac
 //static const char http200ok[] = "";
 static const char httpReq[]="GET %s HTTP/1.1\r\nHost: %s\r\nAccept-Encoding: identity\r\n\r\n";
 
-static const char redisTemplateValue[] = "daemonize yes\npidfile ./redis.%s.pid\nport %s\ntimeout 0\ntcp-keepalive 0\nloglevel notice\nlogfile stdout\ndatabases 16\nsave 900 1\nsave 300 10\nsave 60 10000\ndbfilename dump_%s.rdb\ndir /usr/local/redis/log/\nmaxmemory %ld\nrequirepass %s\n";
+static const char redisTemplateValue[] = "daemonize yes\npidfile ./redis.%s.pid\nport %s\ntimeout 0\ntcp-keepalive 0\nloglevel notice\nlogfile stdout\ndatabases 16\nsave 900 1\nsave 300 10\nsave 60 10000\ndbfilename dump_%s.rdb\ndir ./redis/\nmaxmemory %ld\nrequirepass %s\n";
 
 
 //std::string etcdIP="54.222.135.148";
@@ -803,8 +803,9 @@ int CTaskMain::BdxUpdate(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseIn
 }
 int CTaskMain::BdxBind(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams)
 {
-	std::string strInstanceId,strBindId;
-	int iPos;
+	std::string strInstanceId,strBindId,strBindInfoId,strRedisTemplate,strBindInfo;
+	int iPos,jPos,kPos;
+	BDXREDISHOSTINFO_S redisHostInfo;
 	//Json::Reader *jReader= new Json::Reader(Json::Features::strictMode());
 	Json::Value jValue;
 	BDXREQUESTURLINFO_S reqUrlResult = BdxGetReqUrlAndContent(reqParams);
@@ -812,24 +813,71 @@ int CTaskMain::BdxBind(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo
 	
 	iPos = reqUrlResult.m_ReqUrl.rfind(SLASH,reqUrlResult.m_ReqUrl.length());
 	strBindId = reqUrlResult.m_ReqUrl.substr(iPos + 1);
-	stResponseInfo.keyBind = stResponseInfo.keyBind + strBindId;
 
+	jPos = reqUrlResult.m_ReqUrl.rfind(SLASH,iPos - 17);//service_bindings length is 17
+	kPos = reqUrlResult.m_ReqUrl.rfind(SLASH,jPos - 1);
+	strInstanceId = reqUrlResult.m_ReqUrl.substr(kPos+1,jPos-kPos-1);
+	
+	printf("Line:%d,jPos=%d,kPos=%d\n",__LINE__,jPos,kPos);
+	printf("Line:%d,strInstanceId=%s\n",__LINE__,strInstanceId.c_str());
+	
+	stResponseInfo.keyBind = stResponseInfo.keyBind + strBindId;
+	//stResponseInfo.keyProvision = stResponseInfo.keyProvision + strInstanceId;
+
+	
+	strRedisTemplate = stResponseInfo.keyProvision + "redisTemplate/" + strInstanceId;
+	strBindInfoId = stResponseInfo.keyBroker + strBindId;
+	strInstanceId = stResponseInfo.keyProvision + strInstanceId;
+	printf("strInstanceId=%d\n",strInstanceId.c_str());
+	
 	if( BdxCheckRemoteServer(g_remoteIp,g_remotePort)!=SUCCESS )
 	{
 		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
 		return LINKERROR;
 	}
+	printf("11111111111\n");
+	if (BdxCheckEtcdKeyIsExists(stResponseInfo,g_remoteIp,g_remotePort,strInstanceId) == OTHERERROR )
+	{	
+		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
+		return LINKERROR;
+	}
+
+	printf("222222222222\n");
+
+	if (BdxCheckEtcdKeyIsExists(stResponseInfo,g_remoteIp,g_remotePort,strInstanceId) == NOTEXISTS )
+	{	
+		printf("Line:%d,instance is is not exists\n",__LINE__);
+		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
+		return LINKERROR;
+	}
+	printf("33333333333\n");
+
 	if (BdxCheckEtcdKeyIsExists(stResponseInfo,g_remoteIp,g_remotePort,stResponseInfo.keyBind) == OTHERERROR )
 	{	
 		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
 		return LINKERROR;
 	}
+
+		printf("444444\n");
 	if (BdxCheckEtcdKeyIsExists(stResponseInfo,g_remoteIp,g_remotePort,stResponseInfo.keyBind) == NOTEXISTS  )
 	{
 		example::RapidReply replySetBind  = etcd_client.Set(stResponseInfo.keyBind,reqUrlResult.m_ReqContent);
-		example::RapidReply replyGetRedisBrokerInfo = etcd_client.Get(stResponseInfo.keyBroker);
+		printf("Line:%d,strRedisTemplate=%s\n",__LINE__,strRedisTemplate.c_str());
+		example::RapidReply replyGetRedisInstanceInfo = etcd_client.Get(strRedisTemplate);
+		stRequestInfo.m_strReqContent = replyGetRedisInstanceInfo.ReplyToString();
+		printf("stRequestInfo.m_strReqContent=%s\n",stRequestInfo.m_strReqContent.c_str());
+		redisHostInfo = BdxGetHostInfo(stRequestInfo.m_strReqContent);
+
+		strBindInfo = "{\"credentials\":{\"uri\":\"\",\"username\":\"\",\"password\":\"" + redisHostInfo.mPassWord + "\",\"host\":\"" + redisHostInfo.mHostInfo +"\",\"port\":\"" + redisHostInfo.mPort +"\",\"database\":\"\"}}";			
+		example::RapidReply replySetBindInfo  = etcd_client.Set(strBindInfoId,strBindInfo);
+
+		printf("redisHostInfo.mFileName=%s\n",redisHostInfo.mFileName.c_str());
+		std::string strCmd ="redis-server " +  redisHostInfo.mFileName;
+		system(strCmd.c_str());
+		stRequestInfo.m_strReqContent = strBindInfo;
 		//stRequestInfo.m_strReqContent = E200;  //replyGetRedisBrokerInfo.ReplyToString();
-		stRequestInfo.m_strReqContent = replyGetRedisBrokerInfo.ReplyToString();
+		//example::RapidReply replyGetRedisBrokerInfo = etcd_client.Get(stResponseInfo.keyBroker);
+		//stRequestInfo.m_strReqContent = replyGetRedisBrokerInfo.ReplyToString();		
 	}
 	else
 	{
@@ -1072,5 +1120,46 @@ int CTaskMain::BdxDelRedisTemplate(BDXREQUEST_S stRequestInfo,BDXRESPONSE_S stRe
 	return SUCCESS;
 }
 
+BDXREDISHOSTINFO_S CTaskMain::BdxGetHostInfo(std::string &reqParams)
+{
+	Json::Reader *jReader= new Json::Reader(Json::Features::strictMode());
+	Json::Value jValue;
+	int iPos,jPos;
+	//std::string  strHostInfo,strPort,strPass;
+	BDXREDISHOSTINFO_S strRedisHostInfo;
+	std::string strCredentials;
+
+	strRedisHostInfo.mHostInfo = getenv("ETCD_IP");		
+	if(jReader->parse(reqParams, jValue))
+	{
+		printf("ttttttttttttt\n");
+		if(jReader->parse(jValue["node"].toStyledString(), jValue))
+		{	 
+			printf("ttttttttttttt\n");
+			strCredentials = jValue["value"].toStyledString();
+			iPos = strCredentials.find("\"",0);
+			jPos = strCredentials.rfind("\"",strCredentials.length());
+			strCredentials = strCredentials.substr(iPos+1,jPos - iPos-1);
+			strCredentials = BdxTaskMainReplace_All(strCredentials,std::string("\\"),std::string(""));
+			printf("strCredentials=%s\n",strCredentials.c_str());
+			if(jReader->parse(strCredentials,jValue))
+			{
+				printf("ttttttttttttt\n");
+				strRedisHostInfo.mPort = jValue["port"].toStyledString();
+				strRedisHostInfo.mPort = BdxTaskMainReplace_All(strRedisHostInfo.mPort,std::string("\""),std::string(""));
+				strRedisHostInfo.mPort = BdxTaskMainReplace_All(strRedisHostInfo.mPort,std::string("\n"),std::string(""));
+				printf("strRedisHostInfo.mPort=%s\n",strRedisHostInfo.mPort.c_str());
+				strRedisHostInfo.mPassWord = jValue["pass"].toStyledString();
+				strRedisHostInfo.mPassWord = BdxTaskMainReplace_All(strRedisHostInfo.mPassWord,std::string("\""),std::string(""));
+				strRedisHostInfo.mPassWord = BdxTaskMainReplace_All(strRedisHostInfo.mPassWord,std::string("\n"),std::string(""));
+				strRedisHostInfo.mFileName = jValue["filename"].toStyledString();
+				strRedisHostInfo.mFileName = BdxTaskMainReplace_All(strRedisHostInfo.mFileName,std::string("\""),std::string(""));
+				strRedisHostInfo.mFileName = BdxTaskMainReplace_All(strRedisHostInfo.mFileName,std::string("\n"),std::string(""));
+	
+			}
+		}		
+	}
+return strRedisHostInfo;
+}
 
 

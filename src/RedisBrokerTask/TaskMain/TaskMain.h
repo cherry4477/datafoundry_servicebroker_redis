@@ -57,6 +57,7 @@ public:
 	int BdxGetRequestURI(std::string &reqParams);
 	int BdxGenRedisTemplate(BDXREQUEST_S stRequestInfo,BDXRESPONSE_S stResponseInfo,std::string reqParams);
 	int BdxDelRedisTemplate(BDXREQUEST_S stRequestInfo,BDXRESPONSE_S stResponseInfo,std::string reqParams);
+	BDXREDISHOSTINFO_S BdxGetHostInfo(std::string &reqParams);
 
 private:
 	char m_pszAdxBuf[_8KBLEN];

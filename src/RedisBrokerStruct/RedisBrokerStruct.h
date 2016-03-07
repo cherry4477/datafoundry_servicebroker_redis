@@ -320,6 +320,16 @@ typedef struct ResponseInfo
 	
 }BDXRESPONSE_S;
 
+typedef struct ResBindHostInfo
+{
+	std::string mHostInfo;
+	std::string mPassWord;
+	std::string mPort;
+	std::string mFileName;
+	
+}BDXREDISHOSTINFO_S;
+
+
 typedef struct RequestUrlInfo
 {
 	struct timeval timeStamp;
