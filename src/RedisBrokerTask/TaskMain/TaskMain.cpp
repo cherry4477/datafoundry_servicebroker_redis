@@ -109,7 +109,7 @@ int CTaskMain::BdxGetHttpPacket(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S &stRes
 	std::string keyLastOperation = "/servicebroker/catalog/redisBroker/instance/last_operation/";
 	std::string keyProvision = "/servicebroker/catalog/redisBroker/instance/";
 	std::string keyBind = "/servicebroker/catalog/redisBroker/instance/service_bindings/";
-	std::string keyBroker = "/servicebroker/catalog/redisBroker/instance/service_bindings/redisbroker_info";
+	std::string keyBroker = "/servicebroker/catalog/redisBroker/instance/service_bindings/redisbroker_info/";
 	char bufTemp[PACKET];
 	
 	memset(bufTemp, 0, PACKET);
@@ -824,7 +824,6 @@ int CTaskMain::BdxBind(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo
 	stResponseInfo.keyBind = stResponseInfo.keyBind + strBindId;
 	//stResponseInfo.keyProvision = stResponseInfo.keyProvision + strInstanceId;
 
-	
 	strRedisTemplate = stResponseInfo.keyProvision + "redisTemplate/" + strInstanceId;
 	strBindInfoId = stResponseInfo.keyBroker + strBindId;
 	strInstanceId = stResponseInfo.keyProvision + strInstanceId;
@@ -835,43 +834,31 @@ int CTaskMain::BdxBind(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo
 		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
 		return LINKERROR;
 	}
-	printf("11111111111\n");
 	if (BdxCheckEtcdKeyIsExists(stResponseInfo,g_remoteIp,g_remotePort,strInstanceId) == OTHERERROR )
 	{	
 		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
 		return LINKERROR;
 	}
 
-	printf("222222222222\n");
-
 	if (BdxCheckEtcdKeyIsExists(stResponseInfo,g_remoteIp,g_remotePort,strInstanceId) == NOTEXISTS )
 	{	
-		printf("Line:%d,instance is is not exists\n",__LINE__);
 		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
 		return LINKERROR;
 	}
-	printf("33333333333\n");
 
 	if (BdxCheckEtcdKeyIsExists(stResponseInfo,g_remoteIp,g_remotePort,stResponseInfo.keyBind) == OTHERERROR )
 	{	
 		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
 		return LINKERROR;
 	}
-
-		printf("444444\n");
 	if (BdxCheckEtcdKeyIsExists(stResponseInfo,g_remoteIp,g_remotePort,stResponseInfo.keyBind) == NOTEXISTS  )
 	{
 		example::RapidReply replySetBind  = etcd_client.Set(stResponseInfo.keyBind,reqUrlResult.m_ReqContent);
-		printf("Line:%d,strRedisTemplate=%s\n",__LINE__,strRedisTemplate.c_str());
 		example::RapidReply replyGetRedisInstanceInfo = etcd_client.Get(strRedisTemplate);
 		stRequestInfo.m_strReqContent = replyGetRedisInstanceInfo.ReplyToString();
-		printf("stRequestInfo.m_strReqContent=%s\n",stRequestInfo.m_strReqContent.c_str());
 		redisHostInfo = BdxGetHostInfo(stRequestInfo.m_strReqContent);
-
 		strBindInfo = "{\"credentials\":{\"uri\":\"\",\"username\":\"\",\"password\":\"" + redisHostInfo.mPassWord + "\",\"host\":\"" + redisHostInfo.mHostInfo +"\",\"port\":\"" + redisHostInfo.mPort +"\",\"database\":\"\"}}";			
 		example::RapidReply replySetBindInfo  = etcd_client.Set(strBindInfoId,strBindInfo);
-
-		printf("redisHostInfo.mFileName=%s\n",redisHostInfo.mFileName.c_str());
 		std::string strCmd ="redis-server " +  redisHostInfo.mFileName;
 		system(strCmd.c_str());
 		stRequestInfo.m_strReqContent = strBindInfo;
@@ -890,20 +877,49 @@ int CTaskMain::BdxBind(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo
 }
 int CTaskMain::BdxUnbind(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams)
 {
-	std::string strBindId;
-	int iPos;
+	std::string strInstanceId,strBindId,strBindInfoId,strRedisTemplate,strBindInfo;
+	int iPos,jPos,kPos;
+	BDXREDISHOSTINFO_S redisHostInfo;
 	//Json::Reader *jReader= new Json::Reader(Json::Features::strictMode());
 	Json::Value jValue;
 	BDXREQUESTURLINFO_S reqUrlResult = BdxGetReqUrlAndContent(reqParams);
 	//etcd::Client<example::RapidReply>etcd_client(g_remoteIp, g_remotePort);
+	
 	iPos = reqUrlResult.m_ReqUrl.rfind(SLASH,reqUrlResult.m_ReqUrl.length());
 	strBindId = reqUrlResult.m_ReqUrl.substr(iPos + 1);
+
+	jPos = reqUrlResult.m_ReqUrl.rfind(SLASH,iPos - 17);//service_bindings length is 17
+	kPos = reqUrlResult.m_ReqUrl.rfind(SLASH,jPos - 1);
+	strInstanceId = reqUrlResult.m_ReqUrl.substr(kPos+1,jPos-kPos-1);
+	
+	printf("Line:%d,jPos=%d,kPos=%d\n",__LINE__,jPos,kPos);
+	printf("Line:%d,strInstanceId=%s\n",__LINE__,strInstanceId.c_str());
+	
 	stResponseInfo.keyBind = stResponseInfo.keyBind + strBindId;
+	//stResponseInfo.keyProvision = stResponseInfo.keyProvision + strInstanceId;
+
+	strRedisTemplate = stResponseInfo.keyProvision + "redisTemplate/" + strInstanceId;
+	strBindInfoId = stResponseInfo.keyBroker + strBindId;
+	strInstanceId = stResponseInfo.keyProvision + strInstanceId;
+	printf("strInstanceId=%d\n",strInstanceId.c_str());
+	
 	if( BdxCheckRemoteServer(g_remoteIp,g_remotePort)!=SUCCESS )
 	{
 		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
 		return LINKERROR;
 	}
+	if (BdxCheckEtcdKeyIsExists(stResponseInfo,g_remoteIp,g_remotePort,strInstanceId) == OTHERERROR )
+	{	
+		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
+		return LINKERROR;
+	}
+
+	if (BdxCheckEtcdKeyIsExists(stResponseInfo,g_remoteIp,g_remotePort,strInstanceId) == NOTEXISTS )
+	{	
+		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
+		return LINKERROR;
+	}
+
 	if (BdxCheckEtcdKeyIsExists(stResponseInfo,g_remoteIp,g_remotePort,stResponseInfo.keyBind) == OTHERERROR )
 	{	
 		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
@@ -911,19 +927,28 @@ int CTaskMain::BdxUnbind(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseIn
 	}
 	if (BdxCheckEtcdKeyIsExists(stResponseInfo,g_remoteIp,g_remotePort,stResponseInfo.keyBind) == EXISTS  )
 	{
-		example::RapidReply replyDelBind  = etcd_client.Delete(stResponseInfo.keyBind);
-		stRequestInfo.m_strReqContent = E200;
+		example::RapidReply replyDeleteBind  = etcd_client.Delete(stResponseInfo.keyBind);
+		example::RapidReply replyGetRedisInstanceInfo = etcd_client.Get(strRedisTemplate);
+		stRequestInfo.m_strReqContent = replyGetRedisInstanceInfo.ReplyToString();
+		redisHostInfo = BdxGetHostInfo(stRequestInfo.m_strReqContent);
+		//strBindInfo = "{\"credentials\":{\"uri\":\"\",\"username\":\"\",\"password\":\"" + redisHostInfo.mPassWord + "\",\"host\":\"" + redisHostInfo.mHostInfo +"\",\"port\":\"" + redisHostInfo.mPort +"\",\"database\":\"\"}}";			
+		example::RapidReply replyDeleteBindInfo  = etcd_client.Delete(strBindInfoId);
+		std::string strCmd ="./unBindServiceBroker.sh " +  redisHostInfo.mPort;
+		system(strCmd.c_str());
+		stRequestInfo.m_strReqContent = E200;  //replyGetRedisBrokerInfo.ReplyToString();
+		//example::RapidReply replyGetRedisBrokerInfo = etcd_client.Get(stResponseInfo.keyBroker);
+		//stRequestInfo.m_strReqContent = replyGetRedisBrokerInfo.ReplyToString();		
 	}
 	else
 	{
-		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
+		stResponseInfo.ssErrorMsg = E409; // etcd is someproblem
 		return LINKERROR;
 	}
-
-	printf("File:%s,Line:%d,BdxUnbind...\n",__FILE__,__LINE__);
+	printf("File:%s,Line:%d,BdxUnBind...\n",__FILE__,__LINE__);
 	//delete jReader;
 	return SUCCESS;
 }
+
 
 int CTaskMain::BdxGetRequestMethod(std::string &reqParams)
 {
@@ -1105,7 +1130,7 @@ int CTaskMain::BdxDelRedisTemplate(BDXREQUEST_S stRequestInfo,BDXRESPONSE_S stRe
 	//store redis port and pass,and bining info
 	etcd_client.Set(stResponseInfo.keyProvision,etcdRedisValue);
 	
-	m_pFile = fopen(statusDir.c_str(), "a");
+	m_pFile = fopen(statusDir.c_str(), "w");
 	fprintf(m_pFile,"%s",m_httpReq);
 	fflush(m_pFile);
 
