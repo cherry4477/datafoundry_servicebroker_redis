@@ -859,7 +859,7 @@ int CTaskMain::BdxBind(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo
 		redisHostInfo = BdxGetHostInfo(stRequestInfo.m_strReqContent);
 		strBindInfo = "{\"credentials\":{\"uri\":\"\",\"username\":\"\",\"password\":\"" + redisHostInfo.mPassWord + "\",\"host\":\"" + redisHostInfo.mHostInfo +"\",\"port\":\"" + redisHostInfo.mPort +"\",\"database\":\"\"}}";			
 		example::RapidReply replySetBindInfo  = etcd_client.Set(strBindInfoId,strBindInfo);
-		std::string strCmd ="redis-server " +  redisHostInfo.mFileName;
+		std::string strCmd ="./redis-server " +  redisHostInfo.mFileName;
 		system(strCmd.c_str());
 		stRequestInfo.m_strReqContent = strBindInfo;
 		//stRequestInfo.m_strReqContent = E200;  //replyGetRedisBrokerInfo.ReplyToString();
