@@ -329,6 +329,14 @@ typedef struct ResBindHostInfo
 	
 }BDXREDISHOSTINFO_S;
 
+typedef struct ResParamValue
+{
+	std::string mServiceId;
+	std::string mPlanId;
+	std::string mBindId;
+	
+}BDXSERVICEPARAM_S;
+
 
 typedef struct RequestUrlInfo
 {

@@ -127,7 +127,7 @@ void CUserQueryCount::BdxQueryCountOpenFile()
 	int randomInt = rand()%100000;
 	char randomchar[5];
 	memset(randomchar,0,5);
-	sprintf(randomchar,"%d",m_RandomInt);
+	sprintf(randomchar,"%d",randomInt);
 
 	std::string statusDir= m_stStatisticsPrm.m_strStatisticsPath+"/"+BdxUserQueryCountGetDate();
 	#if 0

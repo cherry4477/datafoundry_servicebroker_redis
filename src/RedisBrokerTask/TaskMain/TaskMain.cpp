@@ -20,6 +20,7 @@
 #include <openssl/err.h>
 //#include <memory>
 
+#define __CONTAINER__
 
 extern CLog *gp_log;
 const char* CTaskMain::m_pszHttpHeaderEnd = "\r\n\r\n";
@@ -40,6 +41,65 @@ extern int iAPIQpsLimit;
 
 int InitSSLFlag = 0;
 
+
+std::string etcdRedisValue = "{\
+	\"kind\":\"DeploymentConfig\",\
+	\"apiVersion\":\"v1\",\
+  \"metadata\": {\
+      \"name\": \"apidocker\",\
+      \"namespace\": \"chenygtest\",\
+      \"selfLink\": \"/oapi/v1/namespaces/chenygtest/deploymentconfigs/apidocker\"\
+  },\
+	\"spec\": {\
+        \"strategy\": {\
+            \"type\": \"Rolling\",\
+            \"rollingParams\": {\
+                \"updatePeriodSeconds\": 1,\
+                \"intervalSeconds\": 1,\
+                \"timeoutSeconds\": 600,\
+                \"maxUnavailable\": \"25%\",\
+                \"maxSurge\": \"25%\"\
+            },\
+            \"resources\": {}\
+        },\
+        \"triggers\": [\
+            {\
+                \"type\": \"ConfigChange\"\
+            }\
+        ],\
+        \"replicas\": 1,\
+        \"selector\": {\
+            \"run\": \"apidocker\"\
+        },\
+        \"template\": {\
+            \"metadata\": {\
+                \"labels\": {\
+                    \"run\": \"apidocker\"\
+                }\
+            },\
+            \"spec\": {\
+                \"containers\": [\
+                    {\
+                        \"name\": \"apidocker\",\
+                        \"image\": \"172.30.32.106:5000/chenygtest/testdocker\",\
+                        \"env\": [\
+                            {\
+                                \"name\": \"MYSQL_PORT_3306_TCP_PORT\",\
+                                \"value\": \"3306\"\
+                            }\
+                        ]\
+                    }\
+                ],\
+                \"restartPolicy\": \"Always\",\
+                \"terminationGracePeriodSeconds\": 30,\
+                \"dnsPolicy\": \"ClusterFirst\",\
+                \"securityContext\": {}\
+            }\
+        }\
+    }\
+}";
+
+
 static const string http=" HTTP/1.1";
 
 static const char http200ok[] = "HTTP/1.1 200 OK\r\nServer: Bdx LDP/0.1.0\r\nCache-Control: must-revalidate\r\nExpires: Thu, 01 Jan 1970 00:00:00 GMT\r\nPragma: no-cache\r\nConnection: Keep-Alive\r\nContent-Type: application/json;charset=UTF-8\r\nDate: ";
@@ -58,7 +118,7 @@ extern std::string g_serviceBrokerUser;
 extern std::string g_serviceBrokerPass;
 
 etcd::Client<example::RapidReply>etcd_client(getenv("ETCD_IP"),atoi(getenv("ETCD_PORT")));
-
+std::string etcdAuthentication = getenv("ETCD_AUTH");
 
 CTaskMain::CTaskMain(CTcpSocket* pclSock):CUserQueryTask(pclSock)
 {
@@ -114,6 +174,7 @@ int CTaskMain::BdxGetHttpPacket(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S &stRes
 	
 	memset(bufTemp, 0, PACKET);
 	memset(m_pszAdxBuf, 0, _8KBLEN);
+	printf("etcdAuthentication=%s\n",etcdAuthentication.c_str());
 	iRes = m_pclSock->TcpRead(m_pszAdxBuf, _8KBLEN);
 	if(iRes <= (int)http.length()) 
 	{		
@@ -427,7 +488,7 @@ string   CTaskMain::BdxTaskMainReplace_All(string    str,   string   old_value, 
         string::size_type   pos(0);   
         if(   (pos=str.find(old_value))!=string::npos )  
         	{	
-        		printf("Line:%d,str=%s\n",__LINE__,str.c_str());
+        		//printf("Line:%d,str=%s\n",__LINE__,str.c_str());
         		str.replace(pos,old_value.length(),new_value);   
             }
         else   break;   
@@ -492,9 +553,9 @@ std::string CTaskMain::BdxGetAuthorization(std::string strContent)
 	std::string strAuthString = "Authorization";
 	std::string strBasic = "Basic";
 	
-	int iPos = strContent.find(strAuthString,0);
-	int jPos = strContent.find(strBasic,iPos);
-	int kPos = strContent.find(CTRL_N,jPos);
+	unsigned int iPos = strContent.find(strAuthString,0);
+	unsigned int jPos = strContent.find(strBasic,iPos);
+	unsigned int kPos = strContent.find(CTRL_N,jPos);
 
 	if ((iPos == std::string::npos)||(jPos == std::string::npos)||(kPos == std::string::npos))
 	{
@@ -595,6 +656,10 @@ int CTaskMain::BdxCatalog(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseI
 			}
 			#endif
 			stRequestInfo.m_strReqContent = jValue["value"].toStyledString();
+			printf("Line:%d,=========================\n",__LINE__);
+			stRequestInfo.m_strReqContent = BdxTaskMainReplace_All(stRequestInfo.m_strReqContent,std::string("\\"),std::string(""));
+
+			
 		}
 		else
 		{
@@ -645,13 +710,40 @@ int CTaskMain::BdxCatalog(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseI
 
 int CTaskMain::BdxProvision(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams)
 {
-	std::string strInstanceId;
-	int iPos;
-	//Json::Reader *jReader= new Json::Reader(Json::Features::strictMode());
-	Json::Value jValue;
+	std::string strInstanceId,strServiceId,strPlanId;
+	BDXSERVICEPARAM_S sProvisionValue;
+	BDXSERVICEPARAM_S sCatlogValue;
+	int iPos,gStart,gEnd;
+
 	BDXREQUESTURLINFO_S reqUrlResult = BdxGetReqUrlAndContent(reqParams);
 	//etcd::Client<example::RapidReply>etcd_client(g_remoteIp, g_remotePort);
 	iPos = reqUrlResult.m_ReqUrl.rfind(SLASH,reqUrlResult.m_ReqUrl.length());
+	//check service id and plan id
+
+	sProvisionValue = BdxGetProvisionParamValue(reqUrlResult.m_ReqContent);
+	sCatlogValue	= BdxGetCatlogParamValue(stResponseInfo);
+	if(sProvisionValue.mServiceId.empty()||sProvisionValue.mPlanId.empty()||sCatlogValue.mPlanId.empty()||sCatlogValue.mServiceId.empty())
+	{
+		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
+		printf("Line:%d,catlog plan is not null \n",__LINE__);
+		return LINKERROR;
+	}
+
+	if((sCatlogValue.mPlanId.find(sProvisionValue.mPlanId)==std::string::npos)
+	||(sCatlogValue.mPlanId.find(sProvisionValue.mPlanId)==std::string::npos))	
+	{
+		stResponseInfo.ssErrorMsg = E422; // etcd is someproblem
+		printf("Line:%d,catlog plan is not match with provision plan\n",__LINE__);
+		return LINKERROR;		
+	}
+
+	//get redis memory
+	gStart   = sProvisionValue.mPlanId.rfind('-',sProvisionValue.mPlanId.length());
+	gEnd = sProvisionValue.mPlanId.rfind('G',sProvisionValue.mPlanId.length());
+	stRequestInfo.m_strReqContent= sProvisionValue.mPlanId.substr(gStart + 1,gEnd - gStart + 1);
+
+	printf("Line:%d,Redis Memory stRequestInfo.m_strReqContent=%s\n",__LINE__,stRequestInfo.m_strReqContent.c_str());
+	
 	strInstanceId = reqUrlResult.m_ReqUrl.substr(iPos + 1);
 	stResponseInfo.keyLastOperation = stResponseInfo.keyLastOperation + strInstanceId;
 	if( BdxCheckRemoteServer(g_remoteIp,g_remotePort)!=SUCCESS )
@@ -667,11 +759,19 @@ int CTaskMain::BdxProvision(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stRespons
 	if (BdxCheckEtcdKeyIsExists(stResponseInfo,g_remoteIp,g_remotePort,stResponseInfo.keyLastOperation) == NOTEXISTS  )
 	{
 		etcd_client.Set(stResponseInfo.keyLastOperation,"doing");
-		BdxGenRedisTemplate(stRequestInfo,stResponseInfo,strInstanceId);
-		stResponseInfo.keyProvision = stResponseInfo.keyProvision + strInstanceId;
-		etcd_client.Set(stResponseInfo.keyProvision,reqUrlResult.m_ReqContent);
-		etcd_client.Set(stResponseInfo.keyLastOperation,"success");
-		stRequestInfo.m_strReqContent = E200;
+		#ifndef __CONTAINER__
+			BdxGenRedisTemplate(stRequestInfo,stResponseInfo,strInstanceId);
+			stResponseInfo.keyProvision = stResponseInfo.keyProvision + strInstanceId;
+			etcd_client.Set(stResponseInfo.keyProvision,reqUrlResult.m_ReqContent);
+			etcd_client.Set(stResponseInfo.keyLastOperation,"success");
+			stRequestInfo.m_strReqContent = E200;
+		#else
+			BdxGenRedisTemplateContainer(stRequestInfo,stResponseInfo,strInstanceId);
+			stResponseInfo.keyProvision = stResponseInfo.keyProvision + strInstanceId;
+			etcd_client.Set(stResponseInfo.keyProvision,reqUrlResult.m_ReqContent);
+			etcd_client.Set(stResponseInfo.keyLastOperation,"success");
+			stRequestInfo.m_strReqContent = E200;
+		#endif
 	}
 	else
 	{
@@ -827,7 +927,7 @@ int CTaskMain::BdxBind(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo
 	strRedisTemplate = stResponseInfo.keyProvision + "redisTemplate/" + strInstanceId;
 	strBindInfoId = stResponseInfo.keyBroker + strBindId;
 	strInstanceId = stResponseInfo.keyProvision + strInstanceId;
-	printf("strInstanceId=%d\n",strInstanceId.c_str());
+	printf("Line:%d,strInstanceId=%s\n",__LINE__,strInstanceId.c_str());
 	
 	if( BdxCheckRemoteServer(g_remoteIp,g_remotePort)!=SUCCESS )
 	{
@@ -901,7 +1001,7 @@ int CTaskMain::BdxUnbind(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseIn
 	strRedisTemplate = stResponseInfo.keyProvision + "redisTemplate/" + strInstanceId;
 	strBindInfoId = stResponseInfo.keyBroker + strBindId;
 	strInstanceId = stResponseInfo.keyProvision + strInstanceId;
-	printf("strInstanceId=%d\n",strInstanceId.c_str());
+	printf("Line:%d,strInstanceId=%s\n",__LINE__,strInstanceId.c_str());
 	
 	if( BdxCheckRemoteServer(g_remoteIp,g_remotePort)!=SUCCESS )
 	{
@@ -1045,7 +1145,7 @@ BDXREQUESTURLINFO_S CTaskMain::BdxGetReqUrlAndContent(std::string &reqParams)
 int CTaskMain::BdxGenRedisTemplate(BDXREQUEST_S stRequestInfo,BDXRESPONSE_S stResponseInfo,std::string reqParams)
 {
 	std::string strInstanceId;
-	int iPos;
+	//int iPos;
 	//Json::Reader *jReader= new Json::Reader(Json::Features::strictMode());
 	Json::Value jValue;
 	//etcd::Client<example::RapidReply>etcd_client(g_remoteIp, g_remotePort);
@@ -1065,7 +1165,7 @@ int CTaskMain::BdxGenRedisTemplate(BDXREQUEST_S stRequestInfo,BDXRESPONSE_S stRe
 	strInstanceId = reqParams;
 	stResponseInfo.keyProvision = stResponseInfo.keyProvision + "redisTemplate/" + strInstanceId;
 	memset(m_httpReq, 0, _8KBLEN);
-	sprintf(m_httpReq,redisTemplateValue,randomchar,randomchar,randomchar,10240000,strRedisPass.c_str());
+	sprintf(m_httpReq,redisTemplateValue,randomchar,randomchar,randomchar,10240000L,strRedisPass.c_str());
 
 	statusDir = "./redis";//_"+std::string(randomchar)+".conf";
 	if(!m_clFile.FileBeExists(statusDir.c_str())) 
@@ -1074,7 +1174,7 @@ int CTaskMain::BdxGenRedisTemplate(BDXREQUEST_S stRequestInfo,BDXRESPONSE_S stRe
 	}
 
 	statusDir= statusDir + "/redis." +std::string(randomchar)+".conf";
-	std::string etcdRedisValue = "{\"port\":\"" + std::string(randomchar)+ "\",\"pass\":\"" + strRedisPass + "\",\"filename\":\"" + statusDir + "\",\"bing\":\"0\"}";
+	etcdRedisValue = "{\"port\":\"" + std::string(randomchar)+ "\",\"pass\":\"" + strRedisPass + "\",\"filename\":\"" + statusDir + "\",\"bing\":\"0\"}";
 	//store redis port and pass,and bining info
 	etcd_client.Set(stResponseInfo.keyProvision,etcdRedisValue);
 	
@@ -1093,11 +1193,34 @@ int CTaskMain::BdxGenRedisTemplate(BDXREQUEST_S stRequestInfo,BDXRESPONSE_S stRe
 	return SUCCESS;
 }
 
+int CTaskMain::BdxGenRedisTemplateContainer(BDXREQUEST_S stRequestInfo,BDXRESPONSE_S stResponseInfo,std::string reqParams)
+{
+	std::string strInstanceId;
+	//int iPos;
+	//Json::Reader *jReader= new Json::Reader(Json::Features::strictMode());
+	Json::Value jValue;
+	//etcd::Client<example::RapidReply>etcd_client(g_remoteIp, g_remotePort);
+
+	//std::string iCapcity = 1024000;
+	char randomchar[20];
+	memset(randomchar,0,20);
+	sprintf(randomchar,"%ld",atoi(stRequestInfo.m_strReqContent.c_str())*1024*1024L);
+	std::string iCapcity = std::string(randomchar);
+	
+	etcdRedisValue = BdxTaskMainReplace_All(etcdRedisValue,std::string("API_NAME"),strInstanceId);
+	etcdRedisValue = BdxTaskMainReplace_All(etcdRedisValue,std::string("MEMORY_CAPCITY"),iCapcity);
+	//store redis port and pass,and bining info
+	etcd_client.Set(stResponseInfo.keyProvision,etcdRedisValue);
+
+	printf("File:%s,Line:%d,Create Redis Template...\n",__FILE__,__LINE__);
+	//delete jReader;
+	return SUCCESS;
+}
 
 int CTaskMain::BdxDelRedisTemplate(BDXREQUEST_S stRequestInfo,BDXRESPONSE_S stResponseInfo,std::string reqParams)
 {
 	std::string strInstanceId;
-	int iPos;
+	//int iPos;
 	//Json::Reader *jReader= new Json::Reader(Json::Features::strictMode());
 	Json::Value jValue;
 	//etcd::Client<example::RapidReply>etcd_client(g_remoteIp, g_remotePort);
@@ -1117,7 +1240,7 @@ int CTaskMain::BdxDelRedisTemplate(BDXREQUEST_S stRequestInfo,BDXRESPONSE_S stRe
 	strInstanceId = reqParams;
 	stResponseInfo.keyProvision = stResponseInfo.keyProvision + "redisTemplate/" + strInstanceId;
 	memset(m_httpReq, 0, _8KBLEN);
-	sprintf(m_httpReq,redisTemplateValue,randomchar,randomchar,randomchar,10240000,strRedisPass.c_str());
+	sprintf(m_httpReq,redisTemplateValue,randomchar,randomchar,randomchar,10240000L,strRedisPass.c_str());
 
 	statusDir = "./redis";//_"+std::string(randomchar)+".conf";
 	if(!m_clFile.FileBeExists(statusDir.c_str())) 
@@ -1126,7 +1249,7 @@ int CTaskMain::BdxDelRedisTemplate(BDXREQUEST_S stRequestInfo,BDXRESPONSE_S stRe
 	}
 
 	statusDir= statusDir + "/redis." +std::string(randomchar)+".conf";
-	std::string etcdRedisValue = "{\"port\":\"" + std::string(randomchar)+ "\",\"pass\":\"" + strRedisPass + "\",\"filename\":\"" + statusDir + "\",\"bing\":\"0\"}";
+	etcdRedisValue = "{\"port\":\"" + std::string(randomchar)+ "\",\"pass\":\"" + strRedisPass + "\",\"filename\":\"" + statusDir + "\",\"bing\":\"0\"}";
 	//store redis port and pass,and bining info
 	etcd_client.Set(stResponseInfo.keyProvision,etcdRedisValue);
 	
@@ -1143,6 +1266,73 @@ int CTaskMain::BdxDelRedisTemplate(BDXREQUEST_S stRequestInfo,BDXRESPONSE_S stRe
 	printf("File:%s,Line:%d,Create Redis Template...\n",__FILE__,__LINE__);
 	//delete jReader;
 	return SUCCESS;
+}
+
+BDXSERVICEPARAM_S CTaskMain::BdxGetCatlogParamValue(BDXRESPONSE_S& stResponseInfo)
+{
+	Json::Reader *jReader= new Json::Reader(Json::Features::strictMode());
+	Json::Value jValue,jValue2;
+	std::string strCatlogValue;
+	unsigned int iArraySize,iArraySize2;
+	BDXSERVICEPARAM_S mCatlogValue;
+	example::RapidReply reply = etcd_client.Get(stResponseInfo.keyCatalog);
+	if(jReader->parse(reply.ReplyToString(), jValue))
+	{
+		if(jReader->parse(jValue["node"].toStyledString(), jValue))
+		{	 
+			strCatlogValue = jValue["value"].toStyledString();
+			strCatlogValue = BdxTaskMainReplace_All(strCatlogValue,std::string("\\"),std::string(""));	
+			if(jReader->parse(strCatlogValue,jValue))
+			{	
+				if(!jValue["services"].isNull())
+				{	
+					if(jReader->parse(jValue["services"].asString(), jValue))
+					{
+						for(iArraySize=0;iArraySize < jValue.size();iArraySize++)
+						{
+							mCatlogValue.mServiceId = jValue[iArraySize]["id"].asString()+":" +mCatlogValue.mServiceId;
+							if(jReader->parse(jValue[iArraySize]["plans"].asString(), jValue2))
+							{
+								for(iArraySize2=0;iArraySize2 < jValue.size();iArraySize2++)
+								{
+
+									mCatlogValue.mPlanId =jValue2[iArraySize2]["id"].asString()+":" +mCatlogValue.mPlanId;
+									
+								}
+							}
+						}
+					}
+				}
+			}
+
+		}
+	}
+	
+	delete jReader;
+	return mCatlogValue;
+}
+BDXSERVICEPARAM_S CTaskMain::BdxGetProvisionParamValue(std::string &reqParams)
+{
+	Json::Reader *jReader= new Json::Reader(Json::Features::strictMode());
+	Json::Value jValue;
+	BDXSERVICEPARAM_S sProvisionValue;
+	if(jReader->parse(reqParams,jValue))
+	{
+		if(!jValue["service_id"].isNull() && !jValue["plan_id"].isNull())
+		{
+			sProvisionValue.mServiceId = jValue["service_id"].asString();
+			sProvisionValue.mPlanId	 = jValue["plan_id"].asString();		
+		}
+	}
+
+	delete jReader;
+	return sProvisionValue;
+}
+
+BDXSERVICEPARAM_S CTaskMain::BdxGetBindParamValue(std::string &reqParams)
+{
+	BDXSERVICEPARAM_S mBindParamValue;
+	return mBindParamValue;
 }
 
 BDXREDISHOSTINFO_S CTaskMain::BdxGetHostInfo(std::string &reqParams)

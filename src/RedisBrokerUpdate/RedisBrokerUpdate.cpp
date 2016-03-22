@@ -45,7 +45,7 @@ CUserQueryUpdate::CUserQueryUpdate(const IPPORT_S &stTokenServer,const MYSQL_SER
     m_stMysqlServerInfo = new CMYSQL;
 	sprintf(chCount,"%d",stTokenServer.m_count);
 	sprintf(chIP,"%s",stTokenServer.m_pchIp);
-	sprintf(chPort,"%s",stTokenServer.m_uiPort);
+	sprintf(chPort,"%d",stTokenServer.m_uiPort);
 	sprintf(chIdx,"%d",stTokenServer.m_idx);
 	string strServerList = string(chCount)+";"+string(stTokenServer.m_pchIp)+":"+string(chPort)+","+string(chIdx)+";";
 

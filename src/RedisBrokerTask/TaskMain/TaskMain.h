@@ -53,9 +53,13 @@ public:
 	int BdxUnbind(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo,std::string &reqParams);
 	int BdxRunTask();
 	int BdxGetRequestMethod(std::string &reqParams);
+	BDXSERVICEPARAM_S BdxGetCatlogParamValue(BDXRESPONSE_S& stResponseInfo);
+	BDXSERVICEPARAM_S BdxGetProvisionParamValue(std::string &reqParams);
+	BDXSERVICEPARAM_S BdxGetBindParamValue(std::string &reqParams);
 	BDXREQUESTURLINFO_S BdxGetReqUrlAndContent(std::string &reqParams);
 	int BdxGetRequestURI(std::string &reqParams);
 	int BdxGenRedisTemplate(BDXREQUEST_S stRequestInfo,BDXRESPONSE_S stResponseInfo,std::string reqParams);
+	int BdxGenRedisTemplateContainer(BDXREQUEST_S stRequestInfo,BDXRESPONSE_S stResponseInfo,std::string reqParams);
 	int BdxDelRedisTemplate(BDXREQUEST_S stRequestInfo,BDXRESPONSE_S stResponseInfo,std::string reqParams);
 	BDXREDISHOSTINFO_S BdxGetHostInfo(std::string &reqParams);
 
@@ -74,6 +78,7 @@ private:
 	CFile m_clFile;
 	FILE* m_pFile;
 	std::map<std::string,std::string> m_mapUserValue;
+	std::map<std::string,std::string> map_UserValueKey;
 	CTime m_cTime;
 	
 };

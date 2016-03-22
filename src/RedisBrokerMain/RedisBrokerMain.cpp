@@ -140,9 +140,9 @@ bool CUserQueryMain::BdxInitConfig(const char *pszCfgFile)
 			BdxGetHiveLogPrms(&CConf, szSection);
 		} else if(strcmp(szSection, "[TRAFFICSTATISTICS]") == 0) {
 			BdxGetStatisticPrms(&CConf, szSection);
-		} */else if(strcmp(szSection, "[REDISSERVER]") == 0) {
+		} else if(strcmp(szSection, "[REDISSERVER]") == 0) {
 			BdxGetServerPrms(&CConf, szSection, m_stServerInfo.m_stRedisServer);
-		} /*else if(strcmp(szSection, "[GOODS]") == 0) {
+		} else if(strcmp(szSection, "[GOODS]") == 0) {
 			BdxGetServerPrms(&CConf, szSection, m_stServerInfo.m_stGoodsServer);
 		}else if(strcmp(szSection, "[TOKENSERVER]") == 0) {
 			BdxGetServerPrms(&CConf, szSection, m_stServerInfo.m_stTokenServer);
