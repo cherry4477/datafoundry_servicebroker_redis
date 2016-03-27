@@ -106,6 +106,7 @@
 #define E201 "201 Created\n";
 #define E202 "202 Accepted\n"
 #define E409 "409 Conflict\n"
+#define E410 "410 BindId is error\n"
 #define E422 "422 Unprocessable ; Etcd server is some problem!\n"
 
 
