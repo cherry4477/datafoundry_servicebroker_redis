@@ -742,7 +742,7 @@ int CTcpSocket::TcpSslInitEnv()
 		ssl_ctx = SSL_CTX_new(SSLv23_client_method());
 		//ssl_ctx = SSL_CTX_new(TLSv1_method());
 	  				
-	  				#if 1
+	  				#if 0 //是否有证书校验
 						/* Load the RSA CA certificate into the SSL_CTX structure */
 						/* This will allow this client to verify the server's   */
 						/* certificate.                             */

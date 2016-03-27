@@ -55,6 +55,7 @@ public:
 	int BdxGetRequestMethod(std::string &reqParams);
 	BDXSERVICEPARAM_S BdxGetCatlogParamValue(BDXRESPONSE_S& stResponseInfo);
 	BDXSERVICEPARAM_S BdxGetProvisionParamValue(std::string &reqParams);
+	BDXSERVICEPARAM_S BdxGetDeProvisionParamValue(std::string &reqParams);
 	BDXSERVICEPARAM_S BdxGetBindParamValue(std::string &reqParams);
 	BDXREQUESTURLINFO_S BdxGetReqUrlAndContent(std::string &reqParams);
 	int BdxGetRequestURI(std::string &reqParams);
@@ -62,6 +63,9 @@ public:
 	int BdxGenRedisTemplateContainer(BDXREQUEST_S stRequestInfo,BDXRESPONSE_S stResponseInfo,std::string reqParams);
 	int BdxDelRedisTemplate(BDXREQUEST_S stRequestInfo,BDXRESPONSE_S stResponseInfo,std::string reqParams);
 	BDXREDISHOSTINFO_S BdxGetHostInfo(std::string &reqParams);
+	int BdxStartContainerPod(uint16_t sslPort,std::string sslIp,std::string postReqContent="");
+	std::string BdxGetOpenshiftBearer(uint16_t sslPort,std::string sslIp,std::string postReqContent="");
+
 
 private:
 	char m_pszAdxBuf[_8KBLEN];
@@ -71,6 +75,7 @@ private:
 	std::string ssCountKeyReq;
 	std::string ssCountKeyRes;
 	std::string ssCountKeyEmptyRes;
+	CTcpSocket* sslSocket;
 	CMd5 mdSHA1;
 	int m_httpType ;
 	int m_httpUri;
