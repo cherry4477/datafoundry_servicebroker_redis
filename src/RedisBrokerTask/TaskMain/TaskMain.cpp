@@ -44,7 +44,7 @@ int InitSSLFlag = 0;
 
 //std::string etcdRedisValue = "{\"kind\":\"DeploymentConfig\",	\"apiVersion\":\"v1\",\"metadata\":{\"name\":\"API_NAME\",\"namespace\":\"chenygtest\",\"selfLink\":\"/oapi/v1/namespaces/chenygtest/deploymentconfigs/API_NAME\"},	\"spec\":{\"strategy\":{\"type\":\"Rolling\",\"rollingParams\":{\"updatePeriodSeconds\":1,\"intervalSeconds\":1,\"timeoutSeconds\":600},\"resources\":{}},\"triggers\":[{\"type\":\"ConfigChange\"}],\"replicas\":1,\"selector\":{\"run\":\"API_NAME\"},\"template\":{\"metadata\":{\"labels\":{\"run\":\"API_NAME\"}},\"spec\":{\"containers\":[{\"name\":\"API_NAME\",\"image\":\"172.30.32.106:5000/chenygtest/testdocker\",\"env\":[{\"name\":\"REDIS_MEMORY\",\"value\":\"MEMORY_CAPCITY\"\"name\":\"REDIS_PASSWD\",\"value\":\"MYPASS\"}]}],\"restartPolicy\":\"Always\",\"terminationGracePeriodSeconds\":30,\"dnsPolicy\":\"ClusterFirst\"}}}}";
 
-std::string etcdRedisValue = "{\"kind\":\"DeploymentConfig\",\"apiVersion\":\"v1\",\"metadata\": {\"name\": \"API_NAME\",\"namespace\": \"chenygtest\",\"selfLink\": \"/oapi/v1/namespaces/chenygtest/deploymentconfigs/API_NAME\"},\"spec\": {\"strategy\": {\"type\": \"Rolling\",\"rollingParams\": {\"updatePeriodSeconds\": 1,\"intervalSeconds\": 1,\"timeoutSeconds\": 600},\"resources\": {}},\"triggers\": [{\"type\": \"ConfigChange\"}],\"replicas\": 1,\"selector\": {\"run\": \"API_NAME\"},\"template\": {\"metadata\": {\"labels\": {\"run\": \"API_NAME\"}},\"spec\": {\"containers\": [{\"name\": \"API_NAME\",\"image\": \"172.30.32.106:5000/chenygtest/testdocker\",\"env\": [{\"name\": \"REDIS_MEMORY\",\"value\": \"MEMORY_CAPCITY\",\"name\": \"REDIS_PASSWD\",\"value\": \"MYPASS\"}]}],\"restartPolicy\": \"Always\",\"terminationGracePeriodSeconds\": 30,\"dnsPolicy\": \"ClusterFirst\",\"securityContext\": {}}}}}";
+//std::string etcdRedisValue = "{\"kind\":\"DeploymentConfig\",\"apiVersion\":\"v1\",\"metadata\": {\"name\": \"API_NAME\",\"namespace\": \"chenygtest\",\"selfLink\": \"/oapi/v1/namespaces/chenygtest/deploymentconfigs/API_NAME\"},\"spec\": {\"strategy\": {\"type\": \"Rolling\",\"rollingParams\": {\"updatePeriodSeconds\": 1,\"intervalSeconds\": 1,\"timeoutSeconds\": 600},\"resources\": {}},\"triggers\": [{\"type\": \"ConfigChange\"}],\"replicas\": 1,\"selector\": {\"run\": \"API_NAME\"},\"template\": {\"metadata\": {\"labels\": {\"run\": \"API_NAME\"}},\"spec\": {\"containers\": [{\"name\": \"API_NAME\",\"image\": \"172.30.32.106:5000/chenygtest/testdocker\",\"env\": [{\"name\": \"REDIS_MEMORY\",\"value\": \"MEMORY_CAPCITY\",\"name\": \"REDIS_PASSWD\",\"value\": \"MYPASS\"}]}],\"restartPolicy\": \"Always\",\"terminationGracePeriodSeconds\": 30,\"dnsPolicy\": \"ClusterFirst\",\"securityContext\": {}}}}}";
 
 
 static const string http=" HTTP/1.1";
@@ -52,7 +52,7 @@ static const string http=" HTTP/1.1";
 static const char http200ok[] = "HTTP/1.1 200 OK\r\nServer: Bdx LDP/0.1.0\r\nCache-Control: must-revalidate\r\nExpires: Thu, 01 Jan 1970 00:00:00 GMT\r\nPragma: no-cache\r\nConnection: Keep-Alive\r\nContent-Type: application/json;charset=UTF-8\r\nDate: ";
 //static const char http200ok[] = "";
 static const char httpReq[]="GET %s HTTP/1.1\r\nHost: %s\r\nAccept-Encoding: identity\r\n\r\n";
-static const char httpPostReq[]="POST %s HTTP/1.1\r\nHost: %s\r\nAuthorization: Bearer %s\r\nAccept-Encoding: identity\r\n\r\nContent-Type: application/json\r\nContent-Length: %d\r\nConnection:close\r\n%s";
+static const char httpPostReq[]="POST %s HTTP/1.1\r\nHost: %s\r\nAuthorization: Bearer %s\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s";
 static const char httpPostGetPass[]="GET %s HTTP/1.1\r\nHost: %s\r\nAuthorization: Basic %s\r\nAccept: */*\r\nX-CSRF-Token: 1\r\n\r\n";
 
 static const char redisTemplateValue[] = "daemonize yes\npidfile ./redis.%s.pid\nport %s\ntimeout 0\ntcp-keepalive 0\nloglevel notice\nlogfile stdout\ndatabases 16\nsave 900 1\nsave 300 10\nsave 60 10000\ndbfilename dump_%s.rdb\ndir ./redis/\nmaxmemory %ld\nrequirepass %s\n";
@@ -896,27 +896,58 @@ int CTaskMain::BdxBind(BDXREQUEST_S& stRequestInfo,BDXRESPONSE_S& stResponseInfo
 		#else
 
 		std::string openShiftBearer;
+		Json::Reader *jReader= new Json::Reader(Json::Features::strictMode());
+		Json::Value jValue;
 		example::RapidReply replyGetRedisInstanceInfo = etcd_client.Get(strRedisTemplate);
 		stRequestInfo.m_strReqContent = replyGetRedisInstanceInfo.ReplyToString();
-		printf("Line:%d,replyGetRedisInstanceInfo.ReplyToString()=%s\n",__LINE__,replyGetRedisInstanceInfo.ReplyToString().c_str());
 
 
+		if(jReader->parse(replyGetRedisInstanceInfo.ReplyToString(), jValue))
+		{
+			if(jReader->parse(jValue["node"].toStyledString(), jValue))
+			{	 
+				stRequestInfo.m_strReqContent = jValue["value"].toStyledString();
+				printf("Line:%d,=========================\n",__LINE__);
+				stRequestInfo.m_strReqContent = BdxTaskMainReplace_All(stRequestInfo.m_strReqContent,std::string("\\"),std::string(""));	
+				stRequestInfo.m_strReqContent = stRequestInfo.m_strReqContent.substr(1,stRequestInfo.m_strReqContent.length()-3);
+			}
+			else
+			{
+				printf("File:%s,Line:%d,parse json error\n",__FILE__,__LINE__);
+				stResponseInfo.ssErrorMsg = E422;
+				delete jReader;
+				return OTHERERROR;
+			}
+		
+		}
+		
+		printf("Line:%d,stRequestInfo.m_strReqContent=%s\n",__LINE__,stRequestInfo.m_strReqContent.c_str());
 		openShiftBearer = BdxGetOpenshiftBearer(atoi(getenv("OPENSHITF_PAAS_PORT")),getenv("OPENSHITF_PAAS_IP"));
 		printf("Line:%d,openShiftBearer=%s\n",__LINE__,openShiftBearer.c_str());
 		iPos = openShiftBearer.find("access_token=");
 		jPos = openShiftBearer.find("&",iPos);
 		std::string Bearer = openShiftBearer.substr(iPos+std::string("access_token=").length(),jPos - iPos - std::string("access_token=").length());
 		printf("Line:%d,Bearer=%s\n",__LINE__,Bearer.c_str());
-		BdxStartContainerPod(atoi(getenv("OPENSHITF_PAAS_PORT")),getenv("OPENSHITF_PAAS_IP"),stRequestInfo.m_strReqContent);
-		redisHostInfo = BdxGetHostInfo(stRequestInfo.m_strReqContent);
-		example::RapidReply replySetBind  = etcd_client.Set(stResponseInfo.keyBind,reqUrlResult.m_ReqContent);
+		int iRet = BdxStartContainerPod(atoi(getenv("OPENSHITF_PAAS_PORT")),getenv("OPENSHITF_PAAS_IP"),Bearer,stRequestInfo.m_strReqContent);
+		//int jRet = BdxStartContainerSvc(atoi(getenv("OPENSHITF_PAAS_PORT")),getenv("OPENSHITF_PAAS_IP"),Bearer,stRequestInfo.m_strReqContent);
 
-		stRequestInfo.m_strReqContent = strBindInfo;
-		//stRequestInfo.m_strReqContent = E200;  //replyGetRedisBrokerInfo.ReplyToString();
-		//example::RapidReply replyGetRedisBrokerInfo = etcd_client.Get(stResponseInfo.keyBroker);
-		//stRequestInfo.m_strReqContent = replyGetRedisBrokerInfo.ReplyToString();
+		if( iRet == SUCCESS )
+		{
+			//从模本里取得密码
+			redisHostInfo = BdxGetHostInfo(stRequestInfo.m_strReqContent);
+			example::RapidReply replySetBind  = etcd_client.Set(stResponseInfo.keyBind,reqUrlResult.m_ReqContent);
+			
+			stRequestInfo.m_strReqContent = strBindInfo;
+			//stRequestInfo.m_strReqContent = E200;  //replyGetRedisBrokerInfo.ReplyToString();
+			//example::RapidReply replyGetRedisBrokerInfo = etcd_client.Get(stResponseInfo.keyBroker);
+			//stRequestInfo.m_strReqContent = replyGetRedisBrokerInfo.ReplyToString();
 
-
+		}
+		else
+		{
+			stResponseInfo.ssErrorMsg = E409; // etcd is someproblem
+			return LINKERROR;
+		}
 		#endif
 	}
 	else
@@ -1126,7 +1157,7 @@ int CTaskMain::BdxGenRedisTemplate(BDXREQUEST_S stRequestInfo,BDXRESPONSE_S stRe
 	memset(randomchar,0,5);
 	sprintf(randomchar,"%d",randomInt);
 
-	std::string strRedisPass,statusDir;
+	std::string strRedisPass,statusDir,etcdRedisValue;
 	strRedisPass = BdxGenNonce(20); 
 
 	strInstanceId = reqParams;
@@ -1166,6 +1197,8 @@ int CTaskMain::BdxGenRedisTemplateContainer(BDXREQUEST_S stRequestInfo,BDXRESPON
 	char randomchar[20];
 	memset(randomchar,0,20);
 	std::string strRedisPass;
+	std::string etcdRedisValue;
+	etcdRedisValue= "{\"kind\":\"DeploymentConfig\",\"apiVersion\":\"v1\",\"metadata\": {\"name\": \"API_NAME\",\"namespace\": \"chenygtest\",\"selfLink\": \"/oapi/v1/namespaces/chenygtest/deploymentconfigs/API_NAME\"},\"spec\": {\"strategy\": {\"type\": \"Rolling\",\"rollingParams\": {\"updatePeriodSeconds\": 1,\"intervalSeconds\": 1,\"timeoutSeconds\": 600},\"resources\": {}},\"triggers\": [{\"type\": \"ConfigChange\"}],\"replicas\": 1,\"selector\": {\"run\": \"API_NAME\"},\"template\": {\"metadata\": {\"labels\": {\"run\": \"API_NAME\"}},\"spec\": {\"containers\": [{\"name\": \"API_NAME\",\"image\": \"172.30.32.106:5000/chenygtest/testdocker\",\"env\": [{\"name\": \"REDIS_MEMORY\",\"value\": \"MEMORY_CAPCITY\",\"name\": \"REDIS_PASSWD\",\"value\": \"MYPASS\"}]}],\"restartPolicy\": \"Always\",\"terminationGracePeriodSeconds\": 30,\"dnsPolicy\": \"ClusterFirst\",\"securityContext\": {}}}}}";
 	strRedisPass = BdxGenNonce(20); 
 	printf("Line:%d,strInstanceId=%s\n",__LINE__,strInstanceId.c_str());
 	stResponseInfo.keyProvision = stResponseInfo.keyProvision + "redisTemplate/" + strInstanceId;
@@ -1177,7 +1210,7 @@ int CTaskMain::BdxGenRedisTemplateContainer(BDXREQUEST_S stRequestInfo,BDXRESPON
 	etcdRedisValue = BdxTaskMainReplace_All(etcdRedisValue,std::string("MYPASS"),strRedisPass);
 	//store redis port and pass,and bining info
 	etcd_client.Set(stResponseInfo.keyProvision,etcdRedisValue);
-	printf("File:%s,Line:%d,Create Redis Template...\n",__FILE__,__LINE__);
+	printf("File:%s,Line:%d,Create Redis Template...%s\n",__FILE__,__LINE__,etcdRedisValue.c_str());
 	return SUCCESS;
 }
 
@@ -1193,7 +1226,7 @@ int CTaskMain::BdxDelRedisTemplate(BDXREQUEST_S stRequestInfo,BDXRESPONSE_S stRe
 	memset(randomchar,0,5);
 	sprintf(randomchar,"%d",randomInt);
 
-	std::string strRedisPass,statusDir;
+	std::string strRedisPass,statusDir,etcdRedisValue;
 	strRedisPass = BdxGenNonce(20); 
 
 	strInstanceId = reqParams;
@@ -1410,38 +1443,141 @@ std::string CTaskMain::BdxGetOpenshiftBearer(uint16_t sslPort,std::string sslIp,
 }
 
 
-int CTaskMain::BdxStartContainerPod(uint16_t sslPort,std::string sslIp,std::string postReqContent)
+int CTaskMain::BdxStartContainerPod(uint16_t sslPort,std::string sslIp,std::string Bearer,std::string postReqContent)
 {
 
-	char m_httpReq[_8KBLEN];
+	char m_httpReq[_8KBLEN],sslBuffer[_8KBLEN],chPort[10];
 	memset(m_httpReq, 0, _8KBLEN);
+	memset(sslBuffer, 0, _8KBLEN);
+	memset(sslBuffer, 0, 10);
+	std::string strOpenshiftReturn = "";
 
-	std::string myPass="admin:Ouhl9eHv83yuyhdifJwpk4XXIkrbG1YwI";
-    std::string encodedmyPass = base64_encode(reinterpret_cast<const unsigned char*>(myPass.c_str()),myPass.length());
+	sprintf(chPort,"%d",sslPort);
+	//std::string hostInfo = sslIp + ":" + std::string(chPort);
+	std::string hostInfo = std::string("lab.asiainfodata.com") + ":" + std::string(chPort);
+	printf("Line:%d,ip:%s,port %d\n",__LINE__,sslIp.c_str(),sslPort);
 
-	sprintf(m_httpReq,httpPostGetPass,std::string("/oauth/authorize?response_type=token&client_id=openshift-challenging-client").c_str(),sslIp.c_str(),encodedmyPass.c_str());
+	sprintf(m_httpReq,httpPostReq,std::string("/oapi/v1/namespaces/chenygtest/deploymentconfigs").c_str(),hostInfo.c_str(),Bearer.c_str(),postReqContent.length(),postReqContent.c_str());
+	sslSocket = new CTcpSocket(sslPort,sslIp);
+
+	if(sslSocket->TcpConnect()!=0)
+	{	
+		printf("111111\n");
+		sslSocket->TcpClose();
+		return OTHERERROR;
+
+	}
+	else
+	{
+		printf("222222\n");
+		if ( InitSSLFlag == 0 )
+		{
+			sslSocket->TcpSslInitParams();
+			InitSSLFlag = 1;
+		}
+		
+		if(sslSocket->TcpSslInitEnv()!=0)
+		{
+			sslSocket->TcpSslDestroy();
+			return OTHERERROR;
+		}
+		else
+		{
+			printf("33333\n");
+			if(!sslSocket->TcpSslConnect())
+			{
+				sslSocket->TcpSslDestroy();
+				return OTHERERROR;
+			}
+			else
+			{
+				if(sslSocket->TcpSslWriteLen(m_httpReq,strlen(m_httpReq))!=0)
+				{
+					printf("Line:%d,m_httpReq=%s\n",__LINE__,m_httpReq);
+					printf("444444\n");
+					memset(sslBuffer,0,_8KBLEN);
+					sslSocket->TcpSslReadLen(sslBuffer,_8KBLEN);
+					printf("Line:%d,sslBuffer=%s\n",__LINE__,sslBuffer); 
+					if(strlen(sslBuffer) > 0 )
+					{
+						strOpenshiftReturn = std::string(sslBuffer);
+					}
+					sslSocket->TcpSslDestroy();
+				}	
+			}
+		}
+
+	}
+	return SUCCESS;
+}
+
+int CTaskMain::BdxStartContainerSvc(uint16_t sslPort,std::string sslIp,std::string Bearer,std::string postReqContent)
+{
+
+	char m_httpReq[_8KBLEN],sslBuffer[_8KBLEN],chPort[10];
+	memset(m_httpReq, 0, _8KBLEN);
+	memset(sslBuffer, 0, _8KBLEN);
+	memset(sslBuffer, 0, 10);
+	std::string strOpenshiftReturn = "";
+
+	sprintf(chPort,"%d",sslPort);
+	//std::string hostInfo = sslIp + ":" + std::string(chPort);
+	std::string hostInfo = std::string("lab.asiainfodata.com") + ":" + std::string(chPort);
+	printf("Line:%d,ip:%s,port %d\n",__LINE__,sslIp.c_str(),sslPort);
+
+	sprintf(m_httpReq,httpPostReq,std::string("/oapi/v1/namespaces/chenygtest/deploymentconfigs").c_str(),hostInfo.c_str(),Bearer.c_str(),postReqContent.length(),postReqContent.c_str());
 
 	
 	sslSocket = new CTcpSocket(sslPort,sslIp);
 
 	if(sslSocket->TcpConnect()!=0)
 	{	
+		printf("111111\n");
 		sslSocket->TcpClose();
-		return OTHERERROR; 
+		return OTHERERROR;
+
 	}
-	if ( InitSSLFlag == 0 )
+	else
 	{
-		sslSocket->TcpSslInitParams();
-		InitSSLFlag = 1;
+		printf("222222\n");
+		if ( InitSSLFlag == 0 )
+		{
+			sslSocket->TcpSslInitParams();
+			InitSSLFlag = 1;
+		}
+		
+		if(sslSocket->TcpSslInitEnv()!=0)
+		{
+			sslSocket->TcpSslDestroy();
+			return OTHERERROR;
+		}
+		else
+		{
+			printf("33333\n");
+			if(!sslSocket->TcpSslConnect())
+			{
+				sslSocket->TcpSslDestroy();
+				return OTHERERROR;
+			}
+			else
+			{
+				if(sslSocket->TcpSslWriteLen(m_httpReq,strlen(m_httpReq))!=0)
+				{
+					printf("Line:%d,m_httpReq=%s\n",__LINE__,m_httpReq);
+					printf("444444\n");
+					memset(sslBuffer,0,_8KBLEN);
+					sslSocket->TcpSslReadLen(sslBuffer,_8KBLEN);
+					printf("sslBuffer=%s\n",sslBuffer); 
+					if(strlen(sslBuffer) > 0 )
+					{
+						strOpenshiftReturn = std::string(sslBuffer);
+					}
+					sslSocket->TcpSslDestroy();
+				}	
+			}
+		}
+
 	}
-
-	if(sslSocket->TcpSslInitEnv()!=0)
-	{
-		sslSocket->TcpSslDestroy();
-		return ERRORNODATA;	
-	}
-
-
 	return SUCCESS;
 }
 

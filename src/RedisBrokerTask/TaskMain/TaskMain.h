@@ -63,7 +63,8 @@ public:
 	int BdxGenRedisTemplateContainer(BDXREQUEST_S stRequestInfo,BDXRESPONSE_S stResponseInfo,std::string reqParams);
 	int BdxDelRedisTemplate(BDXREQUEST_S stRequestInfo,BDXRESPONSE_S stResponseInfo,std::string reqParams);
 	BDXREDISHOSTINFO_S BdxGetHostInfo(std::string &reqParams);
-	int BdxStartContainerPod(uint16_t sslPort,std::string sslIp,std::string postReqContent="");
+	int BdxStartContainerPod(uint16_t sslPort,std::string sslIp,std::string Bearer,std::string postReqContent="");
+	int BdxStartContainerSvc(uint16_t sslPort,std::string sslIp,std::string Bearer,std::string postReqContent="");
 	std::string BdxGetOpenshiftBearer(uint16_t sslPort,std::string sslIp,std::string postReqContent="");
 
 
